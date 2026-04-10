@@ -1,8 +1,10 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
 from datetime import datetime
 
+from flask_login import UserMixin
+from flask_sqlalchemy import SQLAlchemy
+
 db = SQLAlchemy()
+
 
 class Deputat(UserMixin, db.Model):
     __tablename__ = 'deputats'
@@ -17,6 +19,8 @@ class Deputat(UserMixin, db.Model):
     phone = db.Column(db.String(50))
     email = db.Column(db.String(100))
     uchastok = db.Column(db.Integer, unique=True, nullable=False)
+    photo = db.Column(db.String(300), default='/static/photos/default.png')
+
 
 class AddressBoundary(db.Model):
     __tablename__ = 'address_boundaries'
@@ -24,6 +28,7 @@ class AddressBoundary(db.Model):
     uchastok = db.Column(db.Integer, nullable=False)
     street = db.Column(db.String(100), nullable=False)
     house_number = db.Column(db.String(20), nullable=False)
+
 
 class Appeal(db.Model):
     __tablename__ = 'appeals'
@@ -39,6 +44,7 @@ class Appeal(db.Model):
     status = db.Column(db.String(50), default='Новое')
     status_date = db.Column(db.DateTime)
     result_text = db.Column(db.Text)
+
 
 class TopicStats(db.Model):
     __tablename__ = 'topics'

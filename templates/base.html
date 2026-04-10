@@ -12,22 +12,15 @@
 <body>
     <div class="container">
         <header class="header">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
                 <div>
                     <h1>Приемная депутата</h1>
                     <p>Узнайте своего депутата и отправьте обращение</p>
                 </div>
-                <div style="text-align: right;">
-                    <div style="margin-bottom: 10px;">
-                        {% if not request.endpoint == 'admin_panel' %}
-                            <a href="{{ url_for('admin_login') }}" class="admin-link">Вход для депутата</a>
-                        {% endif %}
-                    </div>
-                    <div style="font-size: 14px;">
-                        <div>📞 <strong>Телефон:</strong> +7 (495) 123-45-67</div>
-                        <div>✉️ <strong>Email:</strong> info@deputat.ru</div>
-                        <div>🕒 <strong>Режим работы:</strong> Пн-Пт 9:00-18:00</div>
-                    </div>
+                <div>
+                    {% if not request.endpoint == 'admin_panel' %}
+                        <a href="{{ url_for('admin_login') }}" class="admin-link">Вход для депутата</a>
+                    {% endif %}
                 </div>
             </div>
         </header>
@@ -37,30 +30,6 @@
         </main>
 
         <footer class="footer">
-            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
-                <div>
-                    <h4>Приемная депутата</h4>
-                    <p>Помощь и поддержка граждан</p>
-                </div>
-                <div>
-                    <h4>Контакты</h4>
-                    <p>📞 +7 (495) 123-45-67<br>
-                    ✉️ info@deputat.ru<br>
-                    📍 г. Москва, ул. Тверская, д. 13</p>
-                </div>
-                <div>
-                    <h4>Режим работы</h4>
-                    <p>Понедельник - Пятница: 9:00 - 18:00<br>
-                    Суббота: 10:00 - 14:00<br>
-                    Воскресенье: выходной</p>
-                </div>
-                <div>
-                    <h4>Полезные ссылки</h4>
-                    <p><a href="/" style="color: white;">Главная</a><br>
-                    <a href="/admin/login" style="color: white;">Личный кабинет</a></p>
-                </div>
-            </div>
-            <hr style="margin: 15px 0; border-color: #444;">
             <p>© Приемная депутата. Все права защищены.<br><span id="currentYear"></span> г.</p>
         </footer>
     </div>

@@ -1,14 +1,25 @@
-from flask import render_template, request, jsonify, redirect, url_for, flash
-from flask_login import login_user, logout_user, login_required, current_user
-from models import db, Deputat, AddressBoundary, Appeal, TopicStats
-from datetime import datetime
 import hashlib
+import os
+from datetime import datetime
+
+from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
+
+from models import AddressBoundary, Appeal, Deputat, TopicStats, db
+
 
 # ========== ПУБЛИЧНЫЕ МАРШРУТЫ ==========
 
-
 def init_routes(app):
+
+    # Конфигурация загрузки фото (внутри функции)
+    UPLOAD_FOLDER = 'static/photos'
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+    def allowed_file(filename):
+        return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
     @app.route('/')
     def index():
@@ -47,7 +58,8 @@ def init_routes(app):
                 'reception_address': deputat.reception_address,
                 'phone': deputat.phone,
                 'email': deputat.email,
-                'uchastok': deputat.uchastok
+                'uchastok': deputat.uchastok,
+                'photo': deputat.photo if hasattr(deputat, 'photo') else '/static/photos/default.png'
             },
             'stats': stats,
             'topics_stats': topics_stats,
@@ -252,6 +264,50 @@ def init_routes(app):
         db.session.delete(deputat)
         db.session.commit()
         return jsonify({'success': True})
+
+    # Загрузка фото для депутата
+    @app.route('/super-admin/deputat/<int:deputat_id>/photo', methods=['POST'])
+    @login_required
+    def upload_photo(deputat_id):
+        print(f"=== ЗАГРУЗКА ФОТО для депутата {deputat_id} ===")
+
+        if not is_super_admin(current_user):
+            print("Ошибка: не суперадмин")
+            return jsonify({'error': 'Доступ запрещен'}), 403
+
+        deputat = Deputat.query.get_or_404(deputat_id)
+        print(f"Депутат найден: {deputat.fio}")
+
+        if 'photo' not in request.files:
+            print("Ошибка: нет файла в запросе")
+            return jsonify({'error': 'Нет файла'}), 400
+
+        file = request.files['photo']
+        print(f"Имя файла: {file.filename}")
+
+        if file.filename == '':
+            print("Ошибка: пустое имя файла")
+            return jsonify({'error': 'Файл не выбран'}), 400
+
+        if file and allowed_file(file.filename):
+            filename = secure_filename(f"deputat_{deputat_id}_{file.filename}")
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            print(f"Сохраняем в: {filepath}")
+
+            # Создаем директорию если её нет
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+            file.save(filepath)
+            print(f"Файл сохранен, размер: {os.path.getsize(filepath)} байт")
+
+            deputat.photo = f'/static/photos/{filename}'
+            db.session.commit()
+            print(f"Путь в БД обновлен: {deputat.photo}")
+
+            return jsonify({'success': True, 'photo_url': deputat.photo})
+
+        print(f"Ошибка: неподдерживаемый формат {file.filename}")
+        return jsonify({'error': 'Неподдерживаемый формат. Используйте PNG, JPG, JPEG, GIF'}), 400
 
     # API для управления адресами
     @app.route('/super-admin/address', methods=['POST'])

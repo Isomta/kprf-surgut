@@ -42,17 +42,41 @@
     <input type="text" id="searchDeputats" class="search-box" placeholder="Поиск по ФИО или участку...">
     <div style="overflow-x: auto;">
         <table class="db-table" id="deputatsTable">
-            <thead><tr><th>ID</th><th>Участок</th><th>ФИО</th><th>Дата рожд.</th><th>Образование</th><th>Стаж</th><th>Телефон</th><th>Действия</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Участок</th>
+                    <th>Фото</th>
+                    <th>ФИО</th>
+                    <th>Дата рожд.</th>
+                    <th>Образование</th>
+                    <th>Стаж</th>
+                    <th>Телефон</th>
+                    <th>Адрес приемной</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
             <tbody>
                 {% for d in deputats %}
                 <tr data-fio="{{ d.fio }}" data-uchastok="{{ d.uchastok }}">
                     <td>{{ d.user_id }}</td>
                     <td>{{ d.uchastok }}</td>
+                    <td>
+                        {% if d.photo %}
+                            <img src="{{ d.photo }}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
+                        {% else %}
+                            <img src="/static/photos/default.png" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
+                        {% endif %}
+                        <br>
+                        <input type="file" id="photo_{{ d.id }}" accept="image/*" style="font-size: 10px; width: 100px;">
+                        <button class="btn-icon" onclick="uploadPhoto({{ d.id }})">📤</button>
+                    </td>
                     <td><input type="text" id="fio_{{ d.id }}" value="{{ d.fio }}" style="width: 150px;"></td>
                     <td><input type="text" id="birth_{{ d.id }}" value="{{ d.birth_date }}" style="width: 100px;"></td>
                     <td><input type="text" id="edu_{{ d.id }}" value="{{ d.education }}" style="width: 120px;"></td>
                     <td><input type="text" id="exp_{{ d.id }}" value="{{ d.experience }}" style="width: 80px;"></td>
                     <td><input type="text" id="phone_{{ d.id }}" value="{{ d.phone }}" style="width: 120px;"></td>
+                    <td><input type="text" id="address_{{ d.id }}" value="{{ d.reception_address }}" style="width: 250px;"></td>
                     <td>
                         <button class="btn-icon" onclick="updateDeputat({{ d.id }})">💾</button>
                         {% if d.user_id != 1 %}
@@ -80,7 +104,8 @@
     <input type="text" id="searchAddresses" class="search-box" placeholder="Поиск по улице или дому...">
     <div style="overflow-x: auto;">
         <table class="db-table" id="addressesTable">
-            <thead><tr><th>ID</th><th>Участок</th><th>Улица</th><th>Номер дома</th><th>Действия</th></tr></thead>
+            <thead><tr><th>ID</th><th>Участок</th><th>Улица</th><th>Номер дома</th><th>Действия</th></tr>
+            </thead>
             <tbody>
                 {% for a in addresses %}
                 <tr data-street="{{ a.street }}" data-house="{{ a.house_number }}">
@@ -111,7 +136,8 @@
     <h3>📝 Темы обращений</h3>
     <div style="overflow-x: auto;">
         <table class="db-table" id="topicsTable">
-            <thead><tr><th>ID</th><th>Название темы</th><th>Действия</th></tr></thead>
+            <thead><tr><th>ID</th><th>Название темы</th><th>Действия</th></tr>
+            </thead>
             <tbody>
                 {% for t in topics %}
                 <tr>
@@ -133,131 +159,5 @@
     </div>
 </div>
 
-<script>
-function showSection(section) {
-    document.getElementById('sectionDeputats').style.display = section === 'deputats' ? 'block' : 'none';
-    document.getElementById('sectionAddresses').style.display = section === 'addresses' ? 'block' : 'none';
-    document.getElementById('sectionTopics').style.display = section === 'topics' ? 'block' : 'none';
-    document.getElementById('tabDeputats').style.background = section === 'deputats' ? '#3498db' : '#95a5a6';
-    document.getElementById('tabAddresses').style.background = section === 'addresses' ? '#3498db' : '#95a5a6';
-    document.getElementById('tabTopics').style.background = section === 'topics' ? '#3498db' : '#95a5a6';
-}
-
-// Поиск
-document.getElementById('searchDeputats').addEventListener('input', function() {
-    const search = this.value.toLowerCase();
-    document.querySelectorAll('#deputatsTable tbody tr').forEach(row => {
-        const fio = row.dataset.fio?.toLowerCase() || '';
-        const uch = row.dataset.uchastok?.toString() || '';
-        row.style.display = fio.includes(search) || uch.includes(search) ? '' : 'none';
-    });
-});
-
-document.getElementById('searchAddresses').addEventListener('input', function() {
-    const search = this.value.toLowerCase();
-    document.querySelectorAll('#addressesTable tbody tr').forEach(row => {
-        const street = row.dataset.street?.toLowerCase() || '';
-        const house = row.dataset.house?.toLowerCase() || '';
-        row.style.display = street.includes(search) || house.includes(search) ? '' : 'none';
-    });
-});
-
-// CRUD Депутаты
-async function updateDeputat(id) {
-    const data = {
-        fio: document.getElementById(`fio_${id}`).value,
-        birth_date: document.getElementById(`birth_${id}`).value,
-        education: document.getElementById(`edu_${id}`).value,
-        experience: document.getElementById(`exp_${id}`).value,
-        phone: document.getElementById(`phone_${id}`).value
-    };
-    const response = await fetch(`/super-admin/deputat/${id}`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-    });
-    alert(response.ok ? 'Обновлено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-async function deleteDeputat(id) {
-    if (!confirm('Удалить депутата?')) return;
-    const response = await fetch(`/super-admin/deputat/${id}`, { method: 'DELETE' });
-    alert(response.ok ? 'Удалено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-async function addDeputat() {
-    const data = {
-        user_id: parseInt(document.getElementById('new_user_id').value),
-        uchastok: parseInt(document.getElementById('new_uchastok').value),
-        fio: document.getElementById('new_fio').value,
-        password: document.getElementById('new_password').value,
-        birth_date: '', education: '', experience: '', reception_address: '', phone: '', email: ''
-    };
-    const response = await fetch('/super-admin/deputat', {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-    });
-    alert(response.ok ? 'Добавлено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-// CRUD Адреса
-async function updateAddress(id) {
-    const data = {
-        uchastok: parseInt(document.getElementById(`addr_uch_${id}`).value),
-        street: document.getElementById(`addr_street_${id}`).value,
-        house_number: document.getElementById(`addr_house_${id}`).value
-    };
-    const response = await fetch(`/super-admin/address/${id}`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-    });
-    alert(response.ok ? 'Обновлено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-async function deleteAddress(id) {
-    if (!confirm('Удалить адрес?')) return;
-    const response = await fetch(`/super-admin/address/${id}`, { method: 'DELETE' });
-    alert(response.ok ? 'Удалено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-async function addAddress() {
-    const data = {
-        uchastok: parseInt(document.getElementById('new_addr_uch').value),
-        street: document.getElementById('new_addr_street').value,
-        house_number: document.getElementById('new_addr_house').value
-    };
-    const response = await fetch('/super-admin/address', {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-    });
-    alert(response.ok ? 'Добавлено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-// CRUD Темы
-async function updateTopic(id) {
-    const data = { topic_name: document.getElementById(`topic_name_${id}`).value };
-    const response = await fetch(`/super-admin/topic/${id}`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-    });
-    alert(response.ok ? 'Обновлено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-async function deleteTopic(id) {
-    if (!confirm('Удалить тему?')) return;
-    const response = await fetch(`/super-admin/topic/${id}`, { method: 'DELETE' });
-    alert(response.ok ? 'Удалено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-
-async function addTopic() {
-    const data = { topic_name: document.getElementById('new_topic_name').value };
-    const response = await fetch('/super-admin/topic', {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-    });
-    alert(response.ok ? 'Добавлено' : 'Ошибка');
-    if (response.ok) location.reload();
-}
-</script>
+<script src="{{ url_for('static', filename='admin_db.js') }}"></script>
 {% endblock %}

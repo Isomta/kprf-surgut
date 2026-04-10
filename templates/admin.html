@@ -30,6 +30,7 @@
 {% else %}
     <div class="filter-bar">
         <input type="text" id="searchInput" placeholder="Поиск по ФИО, телефону, тексту...">
+        
         <select id="statusFilter">
             <option value="">Все статусы</option>
             <option value="Новое">Новое</option>
@@ -37,46 +38,66 @@
             <option value="Выполнено">Выполнено</option>
             <option value="Отказано">Отказано</option>
         </select>
+        
         <select id="topicFilter">
             <option value="">Все темы</option>
             {% for appeal in appeals %}
                 <option value="{{ appeal.topic }}">{{ appeal.topic }}</option>
             {% endfor %}
         </select>
+        
+        <select id="needVisitFilter">
+            <option value="">Визит: Все</option>
+            <option value="Да">Требуется визит</option>
+            <option value="Нет">Без визита</option>
+        </select>
+        
+        <select id="dateFilter">
+            <option value="">За все время</option>
+            <option value="today">Сегодня</option>
+            <option value="week">Эта неделя</option>
+            <option value="month">Этот месяц</option>
+        </select>
+        
         <button class="btn-small" onclick="applyFilters()">Применить</button>
         <button class="btn-small" onclick="resetFilters()">Сбросить</button>
     </div>
 
-    <h3>Обращения граждан (всего: {{ appeals|length }})</h3>
+    <h3>Обращения граждан (всего: <span id="appealsCount">{{ appeals|length }}</span>)</h3>
     <div style="overflow-x: auto;">
         <table class="admin-table" id="appealsTable">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Дата</th>
-                    <th>Тема</th>
+                    <th onclick="sortTable(0)" style="cursor: pointer;">ID ↕</th>
+                    <th onclick="sortTable(1)" style="cursor: pointer;">Дата ↕</th>
+                    <th onclick="sortTable(2)" style="cursor: pointer;">Тема ↕</th>
                     <th>Текст</th>
-                    <th>ФИО</th>
+                    <th onclick="sortTable(4)" style="cursor: pointer;">ФИО ↕</th>
                     <th>Телефон</th>
-                    <th>Визит</th>
-                    <th>Статус</th>
+                    <th onclick="sortTable(6)" style="cursor: pointer;">Визит ↕</th>
+                    <th onclick="sortTable(7)" style="cursor: pointer;">Статус ↕</th>
                     <th>Результат</th>
                     <th>Действия</th>
                 </tr>
             </thead>
             <tbody>
                 {% for appeal in appeals %}
-                <tr data-status="{{ appeal.status }}" data-topic="{{ appeal.topic }}" data-search="{{ appeal.fio or '' }} {{ appeal.phone or '' }} {{ appeal.text }}">
+                <tr data-status="{{ appeal.status }}" data-topic="{{ appeal.topic }}" data-visit="{{ 'Да' if appeal.need_visit else 'Нет' }}" data-date="{{ appeal.created_at.strftime('%Y-%m-%d') }}" data-search="{{ appeal.fio or '' }} {{ appeal.phone or '' }} {{ appeal.text }}">
                     <td>{{ appeal.id }}</td>
                     <td>{{ appeal.created_at.strftime('%d.%m.%Y') }}</td>
                     <td>{{ appeal.topic }}</td>
-                    <td>{{ appeal.text[:100] }}{% if appeal.text|length > 100 %}...{% endif %}</td>
+                    <td>
+                        <span class="short-text">{{ appeal.text[:50] }}{% if appeal.text|length > 50 %}...{% endif %}</span>
+                        {% if appeal.text|length > 50 %}
+                            <button class="btn-small" onclick="showFullText('{{ appeal.id }}', `{{ appeal.text.replace('`', '\\`') }}`)">📖 Читать полностью</button>
+                        {% endif %}
+                    </td>
                     <td>{{ appeal.fio or '-' }}</td>
                     <td>{{ appeal.phone or '-' }}</td>
-                    <td>{{ 'Да' if appeal.need_visit else 'Нет' }}</td>
+                    <td class="visit-{{ 'yes' if appeal.need_visit else 'no' }}">{{ 'Да' if appeal.need_visit else 'Нет' }}</td>
                     <td class="status-{{ appeal.status.lower().replace(' ', '-').replace('ё', 'е') }}">{{ appeal.status }}</td>
                     <td>
-                        <textarea id="result_{{ appeal.id }}" rows="2" style="width: 200px;">{{ appeal.result_text or '' }}</textarea>
+                        <textarea id="result_{{ appeal.id }}" rows="2" style="width: 200px;" placeholder="Результат работы...">{{ appeal.result_text or '' }}</textarea>
                     </td>
                     <td>
                         <select id="status_{{ appeal.id }}">
@@ -94,7 +115,96 @@
     </div>
 {% endif %}
 
+<!-- Модальное окно для полного текста обращения -->
+<div id="fullTextModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3>Полный текст обращения</h3>
+        <p id="fullTextContent" style="white-space: pre-wrap; margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;"></p>
+        <button class="btn" onclick="closeFullTextModal()">Закрыть</button>
+    </div>
+</div>
+
+<style>
+    .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+    .btn-small { padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .btn-small:hover { background: #2980b9; }
+    .visit-yes { color: #e67e22; font-weight: bold; }
+    .visit-no { color: #27ae60; }
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: white; padding: 25px; border-radius: 8px; max-width: 90%; }
+</style>
+
 <script>
+// Фильтрация
+function applyFilters() {
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const topicFilter = document.getElementById('topicFilter').value;
+    const visitFilter = document.getElementById('needVisitFilter').value;
+    const dateFilter = document.getElementById('dateFilter').value;
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
+    const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+    
+    const rows = document.querySelectorAll('#appealsTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        let show = true;
+        const rowDate = row.dataset.date;
+        
+        if (statusFilter && row.dataset.status !== statusFilter) show = false;
+        if (topicFilter && row.dataset.topic !== topicFilter) show = false;
+        if (visitFilter && row.dataset.visit !== visitFilter) show = false;
+        if (dateFilter === 'today' && rowDate !== today) show = false;
+        if (dateFilter === 'week' && rowDate < weekAgo) show = false;
+        if (dateFilter === 'month' && rowDate < monthAgo) show = false;
+        if (searchText && !row.dataset.search.toLowerCase().includes(searchText)) show = false;
+        
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+    
+    document.getElementById('appealsCount').innerText = visibleCount;
+}
+
+function resetFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('topicFilter').value = '';
+    document.getElementById('needVisitFilter').value = '';
+    document.getElementById('dateFilter').value = '';
+    applyFilters();
+}
+
+// Сортировка
+let sortDirection = {};
+function sortTable(colIndex) {
+    const table = document.getElementById('appealsTable');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    sortDirection[colIndex] = sortDirection[colIndex] === 'asc' ? 'desc' : 'asc';
+    const dir = sortDirection[colIndex];
+    
+    rows.sort((a, b) => {
+        let aVal = a.cells[colIndex].innerText.trim();
+        let bVal = b.cells[colIndex].innerText.trim();
+        
+        if (colIndex === 1) { // дата
+            aVal = a.dataset.date || '';
+            bVal = b.dataset.date || '';
+        }
+        if (colIndex === 0 || colIndex === 1) { // ID или дата - числовое/дата
+            return dir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        return dir === 'asc' ? aVal.localeCompare(bVal, 'ru') : bVal.localeCompare(aVal, 'ru');
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// Обновление обращения
 async function updateAppeal(appealId) {
     const status = document.getElementById(`status_${appealId}`).value;
     const resultText = document.getElementById(`result_${appealId}`).value;
@@ -111,26 +221,14 @@ async function updateAppeal(appealId) {
     }
 }
 
-function applyFilters() {
-    const searchText = document.getElementById('searchInput').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-    const topicFilter = document.getElementById('topicFilter').value;
-    const rows = document.querySelectorAll('#appealsTable tbody tr');
-    rows.forEach(row => {
-        let show = true;
-        if (statusFilter && row.dataset.status !== statusFilter) show = false;
-        if (topicFilter && row.dataset.topic !== topicFilter) show = false;
-        if (searchText && !row.dataset.search.toLowerCase().includes(searchText)) show = false;
-        row.style.display = show ? '' : 'none';
-    });
+// Показ полного текста
+function showFullText(id, text) {
+    document.getElementById('fullTextContent').innerText = text;
+    document.getElementById('fullTextModal').style.display = 'flex';
 }
 
-function resetFilters() {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('statusFilter').value = '';
-    document.getElementById('topicFilter').value = '';
-    const rows = document.querySelectorAll('#appealsTable tbody tr');
-    rows.forEach(row => row.style.display = '');
+function closeFullTextModal() {
+    document.getElementById('fullTextModal').style.display = 'none';
 }
 </script>
 {% endblock %}

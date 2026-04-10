@@ -1,8 +1,11 @@
-from routes import init_routes
-from models import db, Deputat
-from flask_login import LoginManager
-from flask import Flask
 import warnings
+
+from flask import Flask
+from flask_login import LoginManager
+
+from models import Deputat, db
+from routes import init_routes
+
 warnings.filterwarnings('ignore')
 
 

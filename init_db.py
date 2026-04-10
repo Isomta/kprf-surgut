@@ -1,6 +1,7 @@
-from app import app
-from models import db, Deputat
 import hashlib
+
+from app import app
+from models import Deputat, db
 
 
 def init_database():

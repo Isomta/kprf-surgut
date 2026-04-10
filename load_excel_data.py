@@ -1,8 +1,10 @@
-from app import app
-from models import db, Deputat, AddressBoundary, TopicStats, Appeal
-from openpyxl import load_workbook
 import hashlib
 from datetime import datetime
+
+from openpyxl import load_workbook
+
+from app import app
+from models import AddressBoundary, Appeal, Deputat, TopicStats, db
 
 
 def load_excel_data():
