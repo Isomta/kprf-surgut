@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Поиск депутата{% endblock %}
+
+{% block content %}
+<div class="search-card">
+    <h3>Найти депутата по адресу</h3>
+    <div class="row">
+        <input type="text" id="street" placeholder="Улица" list="streetList" autocomplete="off">
+        <datalist id="streetList"></datalist>
+        <input type="text" id="house" placeholder="Номер дома" list="houseList" autocomplete="off">
+        <datalist id="houseList"></datalist>
+        <button class="btn" onclick="searchDeputat()">Найти</button>
+    </div>
+    <div id="searchError" class="error"></div>
+</div>
+
+<div id="deputatInfo" class="deputat-card">
+    <h2 id="deputatName"></h2>
+    <p><strong>Участок №</strong> <span id="uchastok"></span></p>
+    <p><strong>Дата рождения:</strong> <span id="birthDate"></span></p>
+    <p><strong>Образование:</strong> <span id="education"></span></p>
+    <p><strong>Стаж работы:</strong> <span id="experience"></span></p>
+    <p><strong>Адрес приемной:</strong> <span id="address"></span></p>
+    <div id="map" style="height: 300px; margin-top: 15px; border-radius: 8px; display: none;"></div>
+    <p><strong>Телефон:</strong> <span id="phone"></span></p>
+    <p><strong>Email:</strong> <span id="email"></span></p>
+
+    <h3>Статистика обращений</h3>
+    <div class="stats-grid">
+        <div class="stat-item"><div class="stat-number" id="totalAppeals">0</div><div>Всего</div></div>
+        <div class="stat-item"><div class="stat-number" id="newAppeals">0</div><div>Новых</div></div>
+        <div class="stat-item"><div class="stat-number" id="inWorkAppeals">0</div><div>В работе</div></div>
+        <div class="stat-item"><div class="stat-number" id="completedAppeals">0</div><div>Выполнено</div></div>
+        <div class="stat-item"><div class="stat-number" id="rejectedAppeals">0</div><div>Отказано</div></div>
+    </div>
+
+    <h3>Темы обращений</h3>
+    <div id="topicsStats" class="topics-list"></div>
+
+    <button class="btn" onclick="openAppealForm()" style="margin-top: 20px;">➕ Создать обращение</button>
+</div>
+
+<!-- Модальное окно -->
+<div id="appealModal" class="modal">
+    <div class="modal-content">
+        <h3>Новое обращение</h3>
+        <form id="appealForm">
+            <div class="form-group">
+                <label>Ваш адрес</label>
+                <input type="text" id="modalStreet" placeholder="Улица" list="modalStreetList" autocomplete="off">
+                <datalist id="modalStreetList"></datalist>
+                <input type="text" id="modalHouse" placeholder="Дом" list="modalHouseList" autocomplete="off" style="margin-top: 5px;">
+                <datalist id="modalHouseList"></datalist>
+            </div>
+            <div class="form-group">
+                <label>Тема обращения</label>
+                <select id="topic" required></select>
+            </div>
+            <div class="form-group">
+                <label>Текст обращения</label>
+                <textarea id="text" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>ФИО (необязательно)</label>
+                <input type="text" id="fio">
+            </div>
+            <div class="form-group">
+                <label>Телефон (необязательно)</label>
+                <input type="tel" id="phoneInput">
+            </div>
+            <div class="form-group">
+                <label>Email (необязательно)</label>
+                <input type="email" id="emailInput">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="needVisit"> Требуется личный визит депутата
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="consent" required> Я согласен на обработку персональных данных
+                </label>
+            </div>
+            <button type="submit" class="btn">Отправить обращение</button>
+            <button type="button" class="btn" onclick="closeModal()" style="background: #95a5a6;">Отмена</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

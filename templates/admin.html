@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Админ-панель депутата{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div>
+        <strong>{{ deputat.fio }}</strong> 
+        {% if deputat.user_id == 100 %}
+            <span style="background: #e67e22; padding: 3px 10px; border-radius: 4px; margin-left: 10px; font-size: 12px;">Супер-администратор</span>
+        {% else %}
+            | Участок №{{ deputat.uchastok }}
+        {% endif %}
+    </div>
+    <div>
+        <a href="/">← На главную</a>
+        {% if deputat.user_id == 100 %}
+            <a href="/super-admin" style="background: #e67e22; padding: 5px 10px; border-radius: 4px; margin-left: 10px; color: white; text-decoration: none;">⚙ Управление БД</a>
+        {% endif %}
+        <a href="/admin/logout">Выйти</a>
+    </div>
+</div>
+
+{% if deputat.user_id == 100 %}
+    <div style="background: #e8f4f8; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+        <h3>👋 Добро пожаловать, {{ deputat.fio }}!</h3>
+        <p>Вы вошли как супер-администратор системы.</p>
+        <p>Для управления базой данных нажмите кнопку <strong>"Управление БД"</strong> в правом верхнем углу.</p>
+    </div>
+{% else %}
+    <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="Поиск по ФИО, телефону, тексту...">
+        <select id="statusFilter">
+            <option value="">Все статусы</option>
+            <option value="Новое">Новое</option>
+            <option value="В работе">В работе</option>
+            <option value="Выполнено">Выполнено</option>
+            <option value="Отказано">Отказано</option>
+        </select>
+        <select id="topicFilter">
+            <option value="">Все темы</option>
+            {% for appeal in appeals %}
+                <option value="{{ appeal.topic }}">{{ appeal.topic }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn-small" onclick="applyFilters()">Применить</button>
+        <button class="btn-small" onclick="resetFilters()">Сбросить</button>
+    </div>
+
+    <h3>Обращения граждан (всего: {{ appeals|length }})</h3>
+    <div style="overflow-x: auto;">
+        <table class="admin-table" id="appealsTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Дата</th>
+                    <th>Тема</th>
+                    <th>Текст</th>
+                    <th>ФИО</th>
+                    <th>Телефон</th>
+                    <th>Визит</th>
+                    <th>Статус</th>
+                    <th>Результат</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for appeal in appeals %}
+                <tr data-status="{{ appeal.status }}" data-topic="{{ appeal.topic }}" data-search="{{ appeal.fio or '' }} {{ appeal.phone or '' }} {{ appeal.text }}">
+                    <td>{{ appeal.id }}</td>
+                    <td>{{ appeal.created_at.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ appeal.topic }}</td>
+                    <td>{{ appeal.text[:100] }}{% if appeal.text|length > 100 %}...{% endif %}</td>
+                    <td>{{ appeal.fio or '-' }}</td>
+                    <td>{{ appeal.phone or '-' }}</td>
+                    <td>{{ 'Да' if appeal.need_visit else 'Нет' }}</td>
+                    <td class="status-{{ appeal.status.lower().replace(' ', '-').replace('ё', 'е') }}">{{ appeal.status }}</td>
+                    <td>
+                        <textarea id="result_{{ appeal.id }}" rows="2" style="width: 200px;">{{ appeal.result_text or '' }}</textarea>
+                    </td>
+                    <td>
+                        <select id="status_{{ appeal.id }}">
+                            <option value="Новое" {% if appeal.status == 'Новое' %}selected{% endif %}>Новое</option>
+                            <option value="В работе" {% if appeal.status == 'В работе' %}selected{% endif %}>В работе</option>
+                            <option value="Выполнено" {% if appeal.status == 'Выполнено' %}selected{% endif %}>Выполнено</option>
+                            <option value="Отказано" {% if appeal.status == 'Отказано' %}selected{% endif %}>Отказано</option>
+                        </select>
+                        <button class="btn-small" onclick="updateAppeal({{ appeal.id }})">Сохранить</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
+<script>
+async function updateAppeal(appealId) {
+    const status = document.getElementById(`status_${appealId}`).value;
+    const resultText = document.getElementById(`result_${appealId}`).value;
+    const response = await fetch(`/admin/update_appeal/${appealId}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status, result_text: resultText})
+    });
+    if (response.ok) {
+        alert('Статус обновлен');
+        location.reload();
+    } else {
+        alert('Ошибка');
+    }
+}
+
+function applyFilters() {
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value;
+    const topicFilter = document.getElementById('topicFilter').value;
+    const rows = document.querySelectorAll('#appealsTable tbody tr');
+    rows.forEach(row => {
+        let show = true;
+        if (statusFilter && row.dataset.status !== statusFilter) show = false;
+        if (topicFilter && row.dataset.topic !== topicFilter) show = false;
+        if (searchText && !row.dataset.search.toLowerCase().includes(searchText)) show = false;
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+function resetFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('topicFilter').value = '';
+    const rows = document.querySelectorAll('#appealsTable tbody tr');
+    rows.forEach(row => row.style.display = '');
+}
+</script>
+{% endblock %}
