@@ -1,0 +1,18 @@
+/* admin.css */
+.filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+.btn-small { padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.btn-small:hover { background: #2980b9; }
+.visit-yes { color: #e67e22; font-weight: bold; }
+.visit-no { color: #27ae60; }
+.status-новое { color: #3498db; font-weight: bold; }
+.status-в-работе { color: #f39c12; font-weight: bold; }
+.status-выполнено { color: #27ae60; font-weight: bold; }
+.status-отказано { color: #e74c3c; font-weight: bold; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1050; }
+.modal-content { background: white; padding: 25px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+.pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 20px 0; flex-wrap: wrap; }
+.pagination a, .pagination span { padding: 6px 12px; border-radius: 4px; text-decoration: none; font-size: 13px; }
+.pagination a { background: #3498db; color: white; }
+.pagination span.disabled { background: #bdc3c7; cursor: not-allowed; }
+.pagination span.active { background: #2c3e50; cursor: default; }
+.pagination .ellipsis { color: #7f8c8d; }

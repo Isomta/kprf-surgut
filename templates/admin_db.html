@@ -1,6 +1,9 @@
 {% extends "base.html" %}
-
 {% block title %}Управление базой данных{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='admin_db.css') }}">
+{% endblock %}
 
 {% block content %}
 <div class="admin-header">
@@ -8,32 +11,15 @@
         <strong>{{ current_user.fio }}</strong> | Главный администратор
     </div>
     <div>
-        <a href="/admin">← К обращениям</a>
-        <a href="/admin/logout">Выйти</a>
+        <a href="{{ url_for('admin.admin_panel') }}">← К обращениям</a>
+        <a href="{{ url_for('auth.admin_logout') }}">Выйти</a>
     </div>
 </div>
 
-<style>
-    .db-section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-    .db-section h3 { margin-bottom: 15px; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
-    .db-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    .db-table th, .db-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-    .db-table th { background: #ecf0f1; }
-    .btn-icon { background: #3498db; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; margin: 2px; }
-    .btn-icon:hover { background: #2980b9; }
-    .btn-danger { background: #e74c3c; }
-    .btn-danger:hover { background: #c0392b; }
-    .btn-success { background: #27ae60; }
-    .add-form { background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .add-form input, .add-form select { padding: 6px; border: 1px solid #ddd; border-radius: 4px; }
-    .search-box { margin-bottom: 15px; padding: 8px; width: 300px; border: 1px solid #ddd; border-radius: 4px; }
-</style>
-
-<!-- Вкладки -->
-<div style="display: flex; gap: 10px; margin-bottom: 20px;">
-    <button onclick="showSection('deputats')" id="tabDeputats" class="btn" style="background: #3498db;">Депутаты</button>
-    <button onclick="showSection('addresses')" id="tabAddresses" class="btn" style="background: #95a5a6;">Адреса</button>
-    <button onclick="showSection('topics')" id="tabTopics" class="btn" style="background: #95a5a6;">Темы</button>
+<div class="tab-container">
+    <button onclick="showSection('deputats')" id="tabDeputats" class="tab-btn active">Депутаты</button>
+    <button onclick="showSection('addresses')" id="tabAddresses" class="tab-btn inactive">Адреса</button>
+    <button onclick="showSection('topics')" id="tabTopics" class="tab-btn inactive">Темы</button>
 </div>
 
 <!-- Депутаты -->
@@ -44,16 +30,8 @@
         <table class="db-table" id="deputatsTable">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Участок</th>
-                    <th>Фото</th>
-                    <th>ФИО</th>
-                    <th>Дата рожд.</th>
-                    <th>Образование</th>
-                    <th>Стаж</th>
-                    <th>Телефон</th>
-                    <th>Адрес приемной</th>
-                    <th>Действия</th>
+                    <th>ID</th><th>Участок</th><th>Фото</th><th>ФИО</th><th>Дата рожд.</th>
+                    <th>Образование</th><th>Стаж</th><th>Телефон</th><th>Адрес приемной</th><th>Действия</th>
                 </tr>
             </thead>
             <tbody>
@@ -68,8 +46,7 @@
                             <img src="/static/photos/default.png" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
                         {% endif %}
                         <br>
-                        <input type="file" id="photo_{{ d.id }}" accept="image/*" style="font-size: 10px; width: 100px;">
-                        <button class="btn-icon" onclick="uploadPhoto({{ d.id }})">📤</button>
+                        <button class="btn-icon" onclick="uploadPhoto({{ d.id }})">📤 Загрузить фото</button>
                     </td>
                     <td><input type="text" id="fio_{{ d.id }}" value="{{ d.fio }}" style="width: 150px;"></td>
                     <td><input type="text" id="birth_{{ d.id }}" value="{{ d.birth_date }}" style="width: 100px;"></td>
@@ -104,8 +81,7 @@
     <input type="text" id="searchAddresses" class="search-box" placeholder="Поиск по улице или дому...">
     <div style="overflow-x: auto;">
         <table class="db-table" id="addressesTable">
-            <thead><tr><th>ID</th><th>Участок</th><th>Улица</th><th>Номер дома</th><th>Действия</th></tr>
-            </thead>
+            <thead><tr><th>ID</th><th>Участок</th><th>Улица</th><th>Номер дома</th><th>Действия</th></tr></thead>
             <tbody>
                 {% for a in addresses %}
                 <tr data-street="{{ a.street }}" data-house="{{ a.house_number }}">
@@ -136,8 +112,7 @@
     <h3>📝 Темы обращений</h3>
     <div style="overflow-x: auto;">
         <table class="db-table" id="topicsTable">
-            <thead><tr><th>ID</th><th>Название темы</th><th>Действия</th></tr>
-            </thead>
+            <thead><tr><th>ID</th><th>Название темы</th><th>Действия</th></tr></thead>
             <tbody>
                 {% for t in topics %}
                 <tr>
@@ -158,6 +133,8 @@
         <button class="btn-icon btn-success" onclick="addTopic()">Добавить</button>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_scripts %}
 <script src="{{ url_for('static', filename='admin_db.js') }}"></script>
 {% endblock %}

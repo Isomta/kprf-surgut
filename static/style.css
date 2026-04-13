@@ -256,3 +256,27 @@ input[list] {
 .admin-link:hover {
     background: rgba(255, 255, 255, 0.3);
 }
+
+/* === ИСПРАВЛЕНИЕ ПЕРЕКРЫТИЯ МОДАЛКИ И КАРТЫ === */
+.modal {
+    z-index: 1050 !important; /* Выше максимального z-index Leaflet (1000) */
+}
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    z-index: 1051;
+}
+#map {
+    z-index: 1;
+    position: relative;
+}
+/* Сдвигаем атрибуцию OSM, чтобы не мешала, но оставалась видимой (лицензия) */
+.leaflet-control-attribution {
+    font-size: 10px !important;
+    background: rgba(255,255,255,0.8) !important;
+    padding: 2px 4px !important;
+}
+.leaflet-control-attribution {
+    display: none !important;
+}

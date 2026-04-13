@@ -1,32 +1,66 @@
-import warnings
+import os
 
+from dotenv import load_dotenv
 from flask import Flask
 from flask_login import LoginManager
+from flask_migrate import Migrate
+from flask_wtf import CSRFProtect
 
+from blueprints.admin import admin_bp
+from blueprints.auth import auth_bp
+from blueprints.public import public_bp
+from blueprints.superadmin import superadmin_bp
 from models import Deputat, db
-from routes import init_routes
 
-warnings.filterwarnings('ignore')
-
-
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-it'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///deputat.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db.init_app(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = 'admin_login'
+load_dotenv()  # Явно загружаем переменные из .env
 
 
-@login_manager.user_loader
-def load_user(user_id):
-    return Deputat.query.get(int(user_id))
+def create_app():
+    app = Flask(__name__)
+
+    # === Конфигурация из переменных окружения ===
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-key')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['WTF_CSRF_CHECK_DEFAULT'] = False
+
+    # === Умная конфигурация БД: SQLite локально, PostgreSQL на сервере ===
+    database_url = os.environ.get('DATABASE_URL', 'sqlite:///deputat.db')
+
+    if database_url.startswith('sqlite'):
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    else:
+        # Автоматически добавляем драйвер psycopg2, если не указан
+        if 'postgresql' in database_url and 'postgresql+psycopg2' not in database_url:
+            database_url = database_url.replace(
+                'postgresql://', 'postgresql+psycopg2://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
+    # === Инициализация расширений ===
+    db.init_app(app)
+    migrate = Migrate(app, db)
+
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.admin_login'
+
+    csrf = CSRFProtect(app)
+
+    # === Загрузка пользователя ===
+    @login_manager.user_loader
+    def load_user(user_id):
+        return Deputat.query.get(int(user_id))
+
+    # === Регистрация маршрутов ===
+    app.register_blueprint(public_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(superadmin_bp)
+
+    return app
 
 
-# Регистрируем все маршруты
-init_routes(app)
+# Создаём экземпляр приложения
+app = create_app()
 
 if __name__ == '__main__':
     print("\n🚀 Запуск сервера на http://localhost:8080")

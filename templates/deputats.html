@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Все депутаты{% endblock %}
+
+{% block extra_head %}
+<!-- ?v=2 принудительно ломает кэш браузера -->
+<link rel="stylesheet" href="{{ url_for('static', filename='deputats.css') }}?v=2">
+{% endblock %}
+
+{% block content %}
+<div id="deputats-wrapper">
+    <h2>Список депутатов</h2>
+    <div id="deputats-grid">
+        {% for d in deputats %}
+        <div class="deputat-item">
+            <img src="{{ d.photo or '/static/photos/default.png' }}" onerror="this.src='/static/photos/default.png'">
+            <h3>{{ d.fio }}</h3>
+            <p>Участок №{{ d.uchastok }}</p>
+            {% if d.reception_address %}<p>📍 {{ d.reception_address }}</p>{% endif %}
+            {% if d.phone %}<p><a href="tel:{{ d.phone }}">📞 {{ d.phone }}</a></p>{% endif %}
+            {% if d.email %}<p><a href="mailto:{{ d.email }}">✉️ {{ d.email }}</a></p>{% endif %}
+            <a href="/?deputat_id={{ d.user_id }}" class="btn-write">Написать обращение</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

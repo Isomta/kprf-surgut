@@ -1,6 +1,9 @@
 {% extends "base.html" %}
-
 {% block title %}Админ-панель депутата{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+{% endblock %}
 
 {% block content %}
 <div class="admin-header">
@@ -13,11 +16,11 @@
         {% endif %}
     </div>
     <div>
-        <a href="/">← На главную</a>
+        <a href="{{ url_for('public.index') }}">← На главную</a>
         {% if deputat.user_id == 100 %}
-            <a href="/super-admin" style="background: #e67e22; padding: 5px 10px; border-radius: 4px; margin-left: 10px; color: white; text-decoration: none;">⚙ Управление БД</a>
+            <a href="{{ url_for('superadmin.super_admin_panel') }}" style="background: #e67e22; padding: 5px 10px; border-radius: 4px; margin-left: 10px; color: white; text-decoration: none;">⚙ Управление БД</a>
         {% endif %}
-        <a href="/admin/logout">Выйти</a>
+        <a href="{{ url_for('auth.admin_logout') }}">Выйти</a>
     </div>
 </div>
 
@@ -63,7 +66,7 @@
         <button class="btn-small" onclick="resetFilters()">Сбросить</button>
     </div>
 
-    <h3>Обращения граждан (всего: <span id="appealsCount">{{ appeals|length }}</span>)</h3>
+    <h3>Обращения граждан (всего: <span id="appealsCount">{{ pagination.total }}</span>)</h3>
     <div style="overflow-x: auto;">
         <table class="admin-table" id="appealsTable">
             <thead>
@@ -89,7 +92,7 @@
                     <td>
                         <span class="short-text">{{ appeal.text[:50] }}{% if appeal.text|length > 50 %}...{% endif %}</span>
                         {% if appeal.text|length > 50 %}
-                            <button class="btn-small" onclick="showFullText('{{ appeal.id }}', `{{ appeal.text.replace('`', '\\`') }}`)">📖 Читать полностью</button>
+                            <button class="btn-small" onclick="showFullText('{{ appeal.id }}', `{{ appeal.text.replace('`', '\\`').replace('\n', '\\n') }}`)">📖 Читать полностью</button>
                         {% endif %}
                     </td>
                     <td>{{ appeal.fio or '-' }}</td>
@@ -113,122 +116,49 @@
             </tbody>
         </table>
     </div>
+
+    {% if pagination.pages > 1 %}
+    <div class="pagination">
+        {% if pagination.has_prev %}
+            <a href="?page={{ pagination.prev_num }}{% if request.args.get('status_filter') %}&status_filter={{ request.args.get('status_filter') }}{% endif %}">← Пред.</a>
+        {% else %}
+            <span class="disabled">← Пред.</span>
+        {% endif %}
+        
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+                {% if p == page %}
+                    <span class="active">{{ p }}</span>
+                {% else %}
+                    <a href="?page={{ p }}{% if request.args.get('status_filter') %}&status_filter={{ request.args.get('status_filter') }}{% endif %}">{{ p }}</a>
+                {% endif %}
+            {% else %}
+                <span class="ellipsis">…</span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if pagination.has_next %}
+            <a href="?page={{ pagination.next_num }}{% if request.args.get('status_filter') %}&status_filter={{ request.args.get('status_filter') }}{% endif %}">След. →</a>
+        {% else %}
+            <span class="disabled">След. →</span>
+        {% endif %}
+        
+        <span style="color: #7f8c8d; font-size: 12px; margin-left: 10px;">
+            Стр. {{ page }} из {{ pagination.pages }} (всего: {{ pagination.total }})
+        </span>
+    </div>
+    {% endif %}
 {% endif %}
 
-<!-- Модальное окно для полного текста обращения -->
-<div id="fullTextModal" class="modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px;">
+<div id="fullTextModal" class="modal">
+    <div class="modal-content">
         <h3>Полный текст обращения</h3>
         <p id="fullTextContent" style="white-space: pre-wrap; margin: 15px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;"></p>
-        <button class="btn" onclick="closeFullTextModal()">Закрыть</button>
+        <button class="btn-small" onclick="closeFullTextModal()">Закрыть</button>
     </div>
 </div>
+{% endblock %}
 
-<style>
-    .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
-    .btn-small { padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
-    .btn-small:hover { background: #2980b9; }
-    .visit-yes { color: #e67e22; font-weight: bold; }
-    .visit-no { color: #27ae60; }
-    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 25px; border-radius: 8px; max-width: 90%; }
-</style>
-
-<script>
-// Фильтрация
-function applyFilters() {
-    const searchText = document.getElementById('searchInput').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
-    const topicFilter = document.getElementById('topicFilter').value;
-    const visitFilter = document.getElementById('needVisitFilter').value;
-    const dateFilter = document.getElementById('dateFilter').value;
-    const today = new Date().toISOString().split('T')[0];
-    const weekAgo = new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0];
-    const monthAgo = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
-    
-    const rows = document.querySelectorAll('#appealsTable tbody tr');
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        let show = true;
-        const rowDate = row.dataset.date;
-        
-        if (statusFilter && row.dataset.status !== statusFilter) show = false;
-        if (topicFilter && row.dataset.topic !== topicFilter) show = false;
-        if (visitFilter && row.dataset.visit !== visitFilter) show = false;
-        if (dateFilter === 'today' && rowDate !== today) show = false;
-        if (dateFilter === 'week' && rowDate < weekAgo) show = false;
-        if (dateFilter === 'month' && rowDate < monthAgo) show = false;
-        if (searchText && !row.dataset.search.toLowerCase().includes(searchText)) show = false;
-        
-        row.style.display = show ? '' : 'none';
-        if (show) visibleCount++;
-    });
-    
-    document.getElementById('appealsCount').innerText = visibleCount;
-}
-
-function resetFilters() {
-    document.getElementById('searchInput').value = '';
-    document.getElementById('statusFilter').value = '';
-    document.getElementById('topicFilter').value = '';
-    document.getElementById('needVisitFilter').value = '';
-    document.getElementById('dateFilter').value = '';
-    applyFilters();
-}
-
-// Сортировка
-let sortDirection = {};
-function sortTable(colIndex) {
-    const table = document.getElementById('appealsTable');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
-    sortDirection[colIndex] = sortDirection[colIndex] === 'asc' ? 'desc' : 'asc';
-    const dir = sortDirection[colIndex];
-    
-    rows.sort((a, b) => {
-        let aVal = a.cells[colIndex].innerText.trim();
-        let bVal = b.cells[colIndex].innerText.trim();
-        
-        if (colIndex === 1) { // дата
-            aVal = a.dataset.date || '';
-            bVal = b.dataset.date || '';
-        }
-        if (colIndex === 0 || colIndex === 1) { // ID или дата - числовое/дата
-            return dir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        }
-        return dir === 'asc' ? aVal.localeCompare(bVal, 'ru') : bVal.localeCompare(aVal, 'ru');
-    });
-    
-    rows.forEach(row => tbody.appendChild(row));
-}
-
-// Обновление обращения
-async function updateAppeal(appealId) {
-    const status = document.getElementById(`status_${appealId}`).value;
-    const resultText = document.getElementById(`result_${appealId}`).value;
-    const response = await fetch(`/admin/update_appeal/${appealId}`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({status, result_text: resultText})
-    });
-    if (response.ok) {
-        alert('Статус обновлен');
-        location.reload();
-    } else {
-        alert('Ошибка');
-    }
-}
-
-// Показ полного текста
-function showFullText(id, text) {
-    document.getElementById('fullTextContent').innerText = text;
-    document.getElementById('fullTextModal').style.display = 'flex';
-}
-
-function closeFullTextModal() {
-    document.getElementById('fullTextModal').style.display = 'none';
-}
-</script>
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='admin.js') }}"></script>
 {% endblock %}

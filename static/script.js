@@ -278,3 +278,75 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// Автопоказ депутата при переходе по ?deputat_id=X
+document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const deputatId = urlParams.get('deputat_id');
+    
+    if (deputatId && document.getElementById('deputatInfo')) {
+        try {
+            // ✅ Используем новый эндпоинт с полной статистикой
+            const response = await fetch(`/api/deputat/${deputatId}`);
+            
+            if (!response.ok) {
+                const err = await response.json();
+                document.getElementById('searchError').innerText = err.error || 'Депутат не найден';
+                return;
+            }
+            
+            const data = await response.json();
+            const deputat = data.deputat;
+            
+            // === Заполнение данных депутата ===
+            currentDeputat = deputat;
+            document.getElementById('deputatName').innerText = deputat.fio;
+            document.getElementById('uchastok').innerText = deputat.uchastok;
+            document.getElementById('birthDate').innerText = deputat.birth_date || '—';
+            document.getElementById('education').innerText = deputat.education || '—';
+            document.getElementById('experience').innerText = deputat.experience || '—';
+            document.getElementById('address').innerText = deputat.reception_address || '—';
+            document.getElementById('phone').innerHTML = deputat.phone 
+                ? `<a href="tel:${deputat.phone}" style="color:#3498db;text-decoration:none">${deputat.phone}</a>` 
+                : '—';
+            document.getElementById('email').innerHTML = deputat.email 
+                ? `<a href="mailto:${deputat.email}" style="color:#3498db;text-decoration:none">${deputat.email}</a>` 
+                : '—';
+            document.getElementById('deputatPhotoImg').src = deputat.photo || '/static/photos/default.png';
+            
+            // === Карта по адресу приёмной ===
+            if (deputat.reception_address) {
+                initMap(deputat.reception_address);
+            }
+            
+            // === Статистика обращений (из ответа API) ===
+            if (data.stats) {
+                document.getElementById('totalAppeals').innerText = data.stats.total;
+                document.getElementById('newAppeals').innerText = data.stats.new;
+                document.getElementById('inWorkAppeals').innerText = data.stats.in_work;
+                document.getElementById('completedAppeals').innerText = data.stats.completed;
+                document.getElementById('rejectedAppeals').innerText = data.stats.rejected;
+            }
+            
+            // === Темы обращений ===
+            const topicsDiv = document.getElementById('topicsStats');
+            topicsDiv.innerHTML = '';
+            if (data.topics_stats && Object.keys(data.topics_stats).length > 0) {
+                for (const [topic, count] of Object.entries(data.topics_stats)) {
+                    topicsDiv.innerHTML += `<div class="topic-tag">${topic}: ${count}</div>`;
+                }
+            } else {
+                topicsDiv.innerHTML = '<em>Нет обращений</em>';
+            }
+            
+            // === Показать карточку и прокрутить к ней ===
+            document.getElementById('deputatInfo').style.display = 'block';
+            document.getElementById('searchError').innerText = '';
+            document.getElementById('deputatInfo').scrollIntoView({ behavior: 'smooth' });
+            
+        } catch (e) {
+            console.error('Ошибка автозагрузки депутата:', e);
+            document.getElementById('searchError').innerText = 'Ошибка при загрузке данных';
+        }
+    }
+});
