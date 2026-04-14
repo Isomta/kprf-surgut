@@ -32,22 +32,45 @@ if (document.getElementById('searchAddresses')) {
 }
 
 // CRUD Депутаты
-async function updateDeputat(id) {
-    const data = {
-        fio: document.getElementById(`fio_${id}`).value,
-        birth_date: document.getElementById(`birth_${id}`).value,
-        education: document.getElementById(`edu_${id}`).value,
-        experience: document.getElementById(`exp_${id}`).value,
-        phone: document.getElementById(`phone_${id}`).value,
-        reception_address: document.getElementById(`address_${id}`).value
-    };
-    const response = await fetch(`/super-admin/deputat/${id}`, {
-        method: 'PUT', 
-        headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify(data)
-    });
-    alert(response.ok ? 'Обновлено' : 'Ошибка');
-    if (response.ok) location.reload();
+async function updateDeputat(deputatId) {
+    const fio = document.getElementById(`fio_${deputatId}`)?.value;
+    const birth = document.getElementById(`birth_${deputatId}`)?.value;
+    const edu = document.getElementById(`edu_${deputatId}`)?.value;
+    const exp = document.getElementById(`exp_${deputatId}`)?.value;
+    const address = document.getElementById(`address_${deputatId}`)?.value;
+    const phone = document.getElementById(`phone_${deputatId}`)?.value;
+    const email = document.getElementById(`email_${deputatId}`)?.value;
+    
+    // === НОВОЕ: Получаем значение пароля ===
+    const password = document.getElementById(`password_${deputatId}`)?.value || '';
+    // =======================================
+    
+    try {
+        const response = await fetch(`/super-admin/deputat/${deputatId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                fio, birth_date: birth, education: edu, experience: exp,
+                reception_address: address, phone, email,
+                password: password  // === ОТПРАВЛЯЕМ ПАРОЛЬ ===
+            })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            // === ПОДСКАЗКА: если пароль менялся ===
+            if (password) {
+                alert('Данные обновлены!\n⚠️ Пароль изменён — сообщите депутату новый.');
+            } else {
+                alert('Данные обновлены');
+            }
+            location.reload();
+        } else {
+            alert('Ошибка: ' + result.error);
+        }
+    } catch(e) {
+        console.error(e);
+        alert('Ошибка сети');
+    }
 }
 
 async function deleteDeputat(id) {

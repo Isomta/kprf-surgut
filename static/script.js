@@ -3,12 +3,20 @@ let currentDeputat = null;
 let lastAddress = null;
 let map = null;
 
+// Скрыть внешнюю карту при выборе депутата
+function hideExternalMap() {
+    const container = document.getElementById('externalMapContainer');
+    if (container) {
+        container.style.display = 'none';
+    }
+}
+
 // Загрузка списка улиц для datalist
 async function loadStreets() {
     const streetList = document.getElementById('streetList');
     const modalStreetList = document.getElementById('modalStreetList');
     
-    if (!streetList && !modalStreetList) return; // нет элементов на странице
+    if (!streetList && !modalStreetList) return;
     
     const response = await fetch('/api/streets');
     const streets = await response.json();
@@ -35,7 +43,7 @@ async function loadStreets() {
 // Загрузка домов для выбранной улицы
 async function loadHouses(street, targetListId) {
     const list = document.getElementById(targetListId);
-    if (!list) return; // нет элемента на странице
+    if (!list) return;
     
     if (!street) {
         list.innerHTML = '';
@@ -66,10 +74,7 @@ function initMap(address) {
         map.remove();
     }
     
-    // Оставляем адрес как есть, без добавления города
     let searchQuery = address;
-    
-    // Упрощаем адрес для геокодинга: убираем лишние сокращения
     searchQuery = searchQuery
         .replace(/г\./g, '')
         .replace(/ул\./g, '')
@@ -145,7 +150,6 @@ async function searchDeputat() {
         document.getElementById('email').innerText = data.deputat.email;
         document.getElementById('deputatPhotoImg').src = data.deputat.photo || '/static/photos/default.png';
 
-        // Инициализация карты с адресом приемной
         if (data.deputat.reception_address) {
             initMap(data.deputat.reception_address);
         }
@@ -163,6 +167,10 @@ async function searchDeputat() {
         document.getElementById('deputatInfo').style.display = 'block';
         errorDiv.innerText = '';
         lastAddress = {street, house};
+        
+        // === СКРЫВАЕМ ВНЕШНЮЮ КАРТУ ПРИ УСПЕШНОМ ПОИСКЕ ===
+        hideExternalMap();
+        
     } catch (error) {
         errorDiv.innerText = 'Ошибка при загрузке данных';
     }
@@ -171,7 +179,7 @@ async function searchDeputat() {
 // Загрузка тем для выпадающего списка
 async function loadTopics() {
     const select = document.getElementById('topic');
-    if (!select) return; // нет элемента на странице
+    if (!select) return;
     
     const response = await fetch('/api/topics');
     const topics = await response.json();
@@ -200,7 +208,7 @@ function closeModal() {
     document.getElementById('appealForm').reset();
 }
 
-// Отправка обращения (только если форма существует на странице)
+// Отправка обращения
 const appealForm = document.getElementById('appealForm');
 if (appealForm) {
     appealForm.addEventListener('submit', async (e) => {
@@ -254,7 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Инициализация после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
-    // Загружаем улицы и темы только если элементы есть на странице
     if (document.getElementById('streetList')) {
         loadStreets();
     }
@@ -262,7 +269,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loadTopics();
     }
     
-    // Подключаем обработчики для автодополнения домов (только если элементы есть)
     const streetInput = document.getElementById('street');
     const modalStreetInput = document.getElementById('modalStreet');
     
@@ -286,7 +292,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     if (deputatId && document.getElementById('deputatInfo')) {
         try {
-            // ✅ Используем новый эндпоинт с полной статистикой
             const response = await fetch(`/api/deputat/${deputatId}`);
             
             if (!response.ok) {
@@ -298,7 +303,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await response.json();
             const deputat = data.deputat;
             
-            // === Заполнение данных депутата ===
             currentDeputat = deputat;
             document.getElementById('deputatName').innerText = deputat.fio;
             document.getElementById('uchastok').innerText = deputat.uchastok;
@@ -314,12 +318,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 : '—';
             document.getElementById('deputatPhotoImg').src = deputat.photo || '/static/photos/default.png';
             
-            // === Карта по адресу приёмной ===
             if (deputat.reception_address) {
                 initMap(deputat.reception_address);
             }
             
-            // === Статистика обращений (из ответа API) ===
             if (data.stats) {
                 document.getElementById('totalAppeals').innerText = data.stats.total;
                 document.getElementById('newAppeals').innerText = data.stats.new;
@@ -328,7 +330,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('rejectedAppeals').innerText = data.stats.rejected;
             }
             
-            // === Темы обращений ===
             const topicsDiv = document.getElementById('topicsStats');
             topicsDiv.innerHTML = '';
             if (data.topics_stats && Object.keys(data.topics_stats).length > 0) {
@@ -339,10 +340,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 topicsDiv.innerHTML = '<em>Нет обращений</em>';
             }
             
-            // === Показать карточку и прокрутить к ней ===
             document.getElementById('deputatInfo').style.display = 'block';
             document.getElementById('searchError').innerText = '';
             document.getElementById('deputatInfo').scrollIntoView({ behavior: 'smooth' });
+            
+            // === СКРЫВАЕМ ВНЕШНЮЮ КАРТУ ПРИ АВТОЗАГРУЗКЕ ===
+            hideExternalMap();
             
         } catch (e) {
             console.error('Ошибка автозагрузки депутата:', e);

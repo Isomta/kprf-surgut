@@ -18,7 +18,7 @@
             {% if d.reception_address %}<p>📍 {{ d.reception_address }}</p>{% endif %}
             {% if d.phone %}<p><a href="tel:{{ d.phone }}">📞 {{ d.phone }}</a></p>{% endif %}
             {% if d.email %}<p><a href="mailto:{{ d.email }}">✉️ {{ d.email }}</a></p>{% endif %}
-            <a href="/?deputat_id={{ d.user_id }}" class="btn-write">Написать обращение</a>
+            <a href="/?deputat_id={{ d.user_id }}" class="btn-write">Перейти</a>
         </div>
         {% endfor %}
     </div>

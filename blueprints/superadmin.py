@@ -85,8 +85,13 @@ def update_deputat(deputat_id):
             deputat.email = data['email']
         if 'uchastok' in data:
             deputat.uchastok = data['uchastok']
-        if 'password' in data and data['password']:
+
+        # === НОВОЕ: Смена пароля (только если поле заполнено) ===
+        if 'password' in data and data['password'].strip():
+            from werkzeug.security import generate_password_hash
             deputat.password_hash = generate_password_hash(data['password'])
+        # ========================================================
+
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:

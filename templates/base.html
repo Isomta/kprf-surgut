@@ -3,39 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Приемная депутата{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>{% block title %}Приёмная депутата КПРФ{% endblock %}</title>
+    
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Глобальные стили -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ theme.color_primary | replace('#', '') }}">
+    
+    <!-- Динамические стили темы (цвета + фон из config.py) -->
+    <style>
+        :root {
+            /* Цвета из config.py */
+            --color-primary: {{ theme.color_primary }};
+            --color-primary-hover: {{ theme.color_primary_hover }};
+            --color-primary-light: {{ theme.color_primary_light }};
+            --color-text-on-primary: {{ theme.color_text_on_primary }};
+            --color-link: {{ theme.color_link }};
+            --color-link-hover: {{ theme.color_link_hover }};
+            --color-accent: {{ theme.color_accent }};
+            
+            /* Фон из config.py */
+            --bg-image: url('{{ url_for('static', filename=theme.bg_image) }}');
+            --bg-size: {{ theme.bg_size }};
+            --bg-position: {{ theme.bg_position }};
+            --bg-repeat: {{ theme.bg_repeat }};
+            --bg-attachment: {{ theme.bg_attachment }};
+            --bg-overlay: {{ theme.bg_overlay }};
+        }
+        
+        /* Применение фона ко всему сайту */
+        body {
+            /* Сначала градиент-затемнение, потом изображение */
+            background-image: 
+                linear-gradient(var(--bg-overlay), var(--bg-overlay)),
+                var(--bg-image);
+            background-size: var(--bg-size), var(--bg-size);
+            background-position: var(--bg-position), var(--bg-position);
+            background-repeat: var(--bg-repeat), var(--bg-repeat);
+            background-attachment: var(--bg-attachment), scroll;
+            min-height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        /* Глобальная замена акцентов на переменные темы */
+        a { color: var(--color-link); text-decoration: none; transition: color 0.2s; }
+        a:hover { color: var(--color-link-hover); text-decoration: underline; }
+        
+        .btn, button, .btn-small, .btn-icon, .deputat-btn, .topic-tag,
+        .pagination a, .pagination .active,
+        .admin-table th, .db-table th {
+            background: var(--color-primary) !important;
+            color: var(--color-text-on-primary) !important;
+            border: none !important;
+            transition: background 0.2s;
+        }
+        .btn:hover, button:hover, .btn-small:hover, .btn-icon:hover, 
+        .deputat-btn:hover, .pagination a:hover {
+            background: var(--color-primary-hover) !important;
+        }
+        
+        /* Акценты: рамки, иконки */
+        .deputat-photo, .deputat-card:hover, .modal-content {
+            border: 3px solid var(--color-accent) !important;
+        }
+        
+        /* Скрытие элементов при загрузке (предотвращает мерцание) */
+        #deputatInfo { display: none; }
+        .modal { display: none; }
+    </style>
+    
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
-                <div>
-                    <h1>Приемная депутата</h1>
-                    <p>Узнайте своего депутата и отправьте обращение</p>
-                </div>
-                <div>
-                    {% if not request.endpoint == 'admin_panel' %}
-                        <a href="{{ url_for('auth.admin_login') }}" class="admin-link">Вход для депутата</a>
-                    {% endif %}
-                    <a href="/deputats" class="admin-link" style="margin-right: 15px;">Список депутатов</a>
-                </div>
-            </div>
-        </header>
+    <!-- Шапка сайта -->
+    <header style="background: rgba(255,255,255,0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+            <a href="{{ url_for('public.index') }}" style="font-size: 1.4rem; font-weight: bold; color: var(--color-primary); text-decoration: none;">
+                🏛️ Приёмная депутата КПРФ
+            </a>
+            <nav>
+                <a href="{{ url_for('public.public_deputats') }}" style="margin-right: 20px; color: var(--color-link); font-weight: 500;">Все депутаты</a>
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('admin.admin_panel') }}" style="margin-right: 20px; color: var(--color-link); font-weight: 500;">Админ-панель</a>
+                    <a href="{{ url_for('auth.admin_logout') }}" style="color: var(--color-link);">Выйти</a>
+                {% else %}
+                    <a href="{{ url_for('auth.admin_login') }}" class="admin-link" style="background: var(--color-primary); color: var(--color-text-on-primary); padding: 8px 16px; border-radius: 5px; text-decoration: none;">Вход для депутата</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
 
-        <main>
-            {% block content %}{% endblock %}
-        </main>
+    <!-- Основной контент -->
+    <main style="max-width: 1200px; margin: 0 auto; padding: 20px; min-height: calc(100vh - 140px);">
+        {% block content %}{% endblock %}
+    </main>
 
-        <footer class="footer">
-            <p>© Приемная депутата. Все права защищены.<br><span id="currentYear"></span> г.</p>
-        </footer>
-    </div>
+    <!-- Футер -->
+    <footer style="background: rgba(255,255,255,0.95); padding: 20px; text-align: center; color: #666; border-top: 1px solid #eee;">
+        <p style="margin: 0;">&copy; <span id="currentYear">{{ now.year if now else 2026 }}</span> Приёмная депутата. Все права защищены.</p>
+    </footer>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Глобальный скрипт -->
+    <script src="{{ url_for('static', filename='script.js') }}?v={{ theme.color_primary | replace('#', '') }}"></script>
+    
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

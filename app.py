@@ -1,10 +1,17 @@
 import os
-
 from dotenv import load_dotenv
 from flask import Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_wtf import CSRFProtect
+
+# Импорт конфигурации темы
+from config import (
+    COLOR_PRIMARY, COLOR_PRIMARY_HOVER, COLOR_PRIMARY_LIGHT,
+    COLOR_TEXT_ON_PRIMARY, COLOR_LINK, COLOR_LINK_HOVER, COLOR_ACCENT,
+    BACKGROUND_IMAGE, BACKGROUND_SIZE, BACKGROUND_POSITION,
+    BACKGROUND_REPEAT, BACKGROUND_ATTACHMENT, BACKGROUND_OVERLAY
+)
 
 from blueprints.admin import admin_bp
 from blueprints.auth import auth_bp
@@ -12,7 +19,7 @@ from blueprints.public import public_bp
 from blueprints.superadmin import superadmin_bp
 from models import Deputat, db
 
-load_dotenv()  # Явно загружаем переменные из .env
+load_dotenv()
 
 
 def create_app():
@@ -29,7 +36,6 @@ def create_app():
     if database_url.startswith('sqlite'):
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     else:
-        # Автоматически добавляем драйвер psycopg2, если не указан
         if 'postgresql' in database_url and 'postgresql+psycopg2' not in database_url:
             database_url = database_url.replace(
                 'postgresql://', 'postgresql+psycopg2://', 1)
@@ -49,6 +55,27 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         return Deputat.query.get(int(user_id))
+
+    # === Контекст-процессор: передача темы во ВСЕ шаблоны автоматически ===
+    @app.context_processor
+    def inject_theme():
+        return {
+            'theme': {
+                'color_primary': COLOR_PRIMARY,
+                'color_primary_hover': COLOR_PRIMARY_HOVER,
+                'color_primary_light': COLOR_PRIMARY_LIGHT,
+                'color_text_on_primary': COLOR_TEXT_ON_PRIMARY,
+                'color_link': COLOR_LINK,
+                'color_link_hover': COLOR_LINK_HOVER,
+                'color_accent': COLOR_ACCENT,
+                'bg_image': BACKGROUND_IMAGE,
+                'bg_size': BACKGROUND_SIZE,
+                'bg_position': BACKGROUND_POSITION,
+                'bg_repeat': BACKGROUND_REPEAT,
+                'bg_attachment': BACKGROUND_ATTACHMENT,
+                'bg_overlay': BACKGROUND_OVERLAY
+            }
+        }
 
     # === Регистрация маршрутов ===
     app.register_blueprint(public_bp)

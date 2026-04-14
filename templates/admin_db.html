@@ -46,7 +46,7 @@
                             <img src="/static/photos/default.png" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
                         {% endif %}
                         <br>
-                        <button class="btn-icon" onclick="uploadPhoto({{ d.id }})">📤 Загрузить фото</button>
+                        <button class="btn-icon" onclick="uploadPhoto({{ d.id }})">смена</button>
                     </td>
                     <td><input type="text" id="fio_{{ d.id }}" value="{{ d.fio }}" style="width: 150px;"></td>
                     <td><input type="text" id="birth_{{ d.id }}" value="{{ d.birth_date }}" style="width: 100px;"></td>
@@ -55,8 +55,12 @@
                     <td><input type="text" id="phone_{{ d.id }}" value="{{ d.phone }}" style="width: 120px;"></td>
                     <td><input type="text" id="address_{{ d.id }}" value="{{ d.reception_address }}" style="width: 250px;"></td>
                     <td>
+                        <input type="password" id="password_{{ d.id }}" placeholder="Новый пароль" 
+                            style="width: 120px; font-size: 12px;" autocomplete="new-password">
+                    </td>
+                    <td>
                         <button class="btn-icon" onclick="updateDeputat({{ d.id }})">💾</button>
-                        {% if d.user_id != 1 %}
+                        {% if d.user_id != 100 %}
                         <button class="btn-icon btn-danger" onclick="deleteDeputat({{ d.id }})">🗑</button>
                         {% endif %}
                     </td>
