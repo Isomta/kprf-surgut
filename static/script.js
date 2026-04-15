@@ -311,10 +311,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('experience').innerText = deputat.experience || '—';
             document.getElementById('address').innerText = deputat.reception_address || '—';
             document.getElementById('phone').innerHTML = deputat.phone 
-                ? `<a href="tel:${deputat.phone}" style="color:#3498db;text-decoration:none">${deputat.phone}</a>` 
+                ? `<a href="tel:${deputat.phone}" style="color:var(--color-link);text-decoration:none">${deputat.phone}</a>` 
                 : '—';
             document.getElementById('email').innerHTML = deputat.email 
-                ? `<a href="mailto:${deputat.email}" style="color:#3498db;text-decoration:none">${deputat.email}</a>` 
+                ? `<a href="mailto:${deputat.email}" style="color:var(--color-link);text-decoration:none">${deputat.email}</a>` 
                 : '—';
             document.getElementById('deputatPhotoImg').src = deputat.photo || '/static/photos/default.png';
             
@@ -352,4 +352,95 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('searchError').innerText = 'Ошибка при загрузке данных';
         }
     }
+});
+
+// =====================================================================
+// === МОДАЛКА "ПОДРОБНЕЕ" — БИОГРАФИЯ И ПРЕДВЫБОРНАЯ ПРОГРАММА ===
+// =====================================================================
+async function openDeputatDetails() {
+    if (!currentDeputat) {
+        alert('Сначала найдите депутата по адресу');
+        return;
+    }
+
+    const modal = document.getElementById('detailsModal');
+    const bioEl = document.getElementById('modalBiography');
+    const listEl = document.getElementById('campaignPointsList');
+
+    if (modal) modal.style.display = 'flex';
+    if (bioEl) bioEl.innerText = 'Загрузка данных...';
+    if (listEl) listEl.innerHTML = '<p style="text-align:center; color:#777;">⏳ Загрузка программы...</p>';
+
+    try {
+        // 🔧 ИСПРАВЛЕНО: currentDeputat.id вместо currentDeputat.user_id
+        const res = await fetch(`/api/deputat/${currentDeputat.id}/details`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (bioEl) bioEl.innerText = data.biography || 'Информация временно отсутствует.';
+
+        if (listEl) {
+            listEl.innerHTML = '';
+            if (!data.points || data.points.length === 0) {
+                listEl.innerHTML = '<p style="text-align:center; color:#999; padding: 20px;">Пункты программы пока не добавлены.</p>';
+                return;
+            }
+
+            data.points.forEach(p => {
+                const votesFor = p['for'] || 0;
+                const votesAgainst = p['against'] || 0;
+                const total = votesFor + votesAgainst || 1;
+                const forPct = Math.round((votesFor / total) * 100);
+                const againstPct = Math.round((votesAgainst / total) * 100);
+
+                listEl.innerHTML += `
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--color-primary); margin-bottom: 12px;">
+                        <p style="font-weight: 500; margin: 0 0 10px; font-size: 15px; color: #333;">${p.text}</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                            <button onclick="votePoint(${p.id}, 'for')" style="background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;">👍 За</button>
+                            <button onclick="votePoint(${p.id}, 'against')" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;">👎 Против</button>
+                            <span style="font-size: 12px; color: #666; margin-left: auto;">
+                                📊 За: ${votesFor} (${forPct}%) | Против: ${votesAgainst} (${againstPct}%)
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки деталей:', e);
+        if (bioEl) bioEl.innerText = '⚠️ Ошибка загрузки данных.';
+        if (listEl) listEl.innerHTML = '';
+    }
+}
+
+function closeDeputatDetails() {
+    const modal = document.getElementById('detailsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function votePoint(pointId, type) {
+    try {
+        const res = await fetch('/api/campaign/vote', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({point_id: pointId, type})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            // Перезагружаем модалку с новыми цифрами
+            openDeputatDetails();
+        } else {
+            alert(data.error || 'Ошибка голосования. Возможно, вы уже голосовали.');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Ошибка сети');
+    }
+}
+
+// Закрытие модалки по клику вне контента
+document.addEventListener('click', (e) => {
+    const modal = document.getElementById('detailsModal');
+    if (modal && e.target === modal) closeDeputatDetails();
 });

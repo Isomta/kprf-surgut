@@ -2,8 +2,8 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, render_template, request
 
-from models import AddressBoundary, Appeal, Deputat, TopicStats, db
-
+from models import AddressBoundary, Appeal, Deputat, TopicStats, db, CampaignPoint
+from flask import session
 public_bp = Blueprint('public', __name__)
 
 
@@ -134,3 +134,37 @@ def get_all_deputats_public():
         'education': d.education, 'experience': d.experience,
         'reception_address': d.reception_address, 'phone': d.phone, 'email': d.email
     } for d in deputats])
+
+
+@public_bp.route('/api/deputat/<int:user_id>/details')
+def get_deputat_details(user_id):
+    deputat = Deputat.query.filter_by(user_id=user_id).first_or_404()
+    points = CampaignPoint.query.filter_by(deputat_id=deputat.id).all()
+    return jsonify({
+        'biography': deputat.biography or 'Биография скоро будет добавлена.',
+        'points': [{'id': p.id, 'text': p.text, 'for': p.votes_for, 'against': p.votes_against} for p in points]
+    })
+
+
+@public_bp.route('/api/campaign/vote', methods=['POST'])
+def vote_campaign():
+    data = request.json
+    point_id = data.get('point_id')
+    vote_type = data.get('type')  # 'for' или 'against'
+
+    point = CampaignPoint.query.get_or_404(point_id)
+
+    # Защита от повторного голосования в текущей сессии
+    voted = session.get('voted_points', [])
+    if str(point_id) in voted:
+        return jsonify({'error': 'Вы уже голосовали за этот пункт'}), 400
+
+    if vote_type == 'for':
+        point.votes_for += 1
+    elif vote_type == 'against':
+        point.votes_against += 1
+
+    voted.append(str(point_id))
+    session['voted_points'] = voted
+    db.session.commit()
+    return jsonify({'success': True, 'for': point.votes_for, 'against': point.votes_against})

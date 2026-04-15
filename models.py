@@ -19,6 +19,7 @@ class Deputat(UserMixin, db.Model):
     phone = db.Column(db.String(50))
     email = db.Column(db.String(100))
     uchastok = db.Column(db.Integer, unique=True, nullable=False)
+    biography = db.Column(db.Text, default="")
     photo = db.Column(db.String(300), default='/static/photos/default.png')
 
 
@@ -50,3 +51,13 @@ class TopicStats(db.Model):
     __tablename__ = 'topics'
     id = db.Column(db.Integer, primary_key=True)
     topic_name = db.Column(db.String(200), unique=True, nullable=False)
+
+
+class CampaignPoint(db.Model):
+    __tablename__ = 'campaign_points'
+    id = db.Column(db.Integer, primary_key=True)
+    deputat_id = db.Column(db.Integer, db.ForeignKey(
+        'deputats.id'), nullable=False)
+    text = db.Column(db.String(500), nullable=False)
+    votes_for = db.Column(db.Integer, default=0)
+    votes_against = db.Column(db.Integer, default=0)
