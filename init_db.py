@@ -1,4 +1,4 @@
-import hashlib
+from werkzeug.security import generate_password_hash  # ← ДОБАВИТЬ ЭТОТ ИМПОРТ
 
 from app import app
 from models import Deputat, db
@@ -15,7 +15,8 @@ def init_database():
         if not super_admin:
             admin = Deputat(
                 user_id=100,
-                password_hash=hashlib.md5('admin123'.encode()).hexdigest(),
+                # ✅ ИСПРАВЛЕНО: используем generate_password_hash вместо MD5
+                password_hash=generate_password_hash('admin123'),
                 fio='Системный администратор',
                 birth_date='01.01.1980',
                 education='Высшее',

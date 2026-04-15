@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Приёмная депутата КПРФ{% endblock %}</title>
-    
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicons/favicon-16x16.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicons/favicon-32x32.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicons/apple-touch-icon.png') }}">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -78,18 +80,32 @@
 </head>
 <body>
     <!-- Шапка сайта -->
-    <header style="background: rgba(255,255,255,0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;">
-        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
-            <a href="{{ url_for('public.index') }}" style="font-size: 1.4rem; font-weight: bold; color: var(--color-primary); text-decoration: none;">
-                🏛️ Приёмная депутата КПРФ
-            </a>
-            <nav>
-                <a href="{{ url_for('public.public_deputats') }}" style="margin-right: 20px; color: var(--color-link); font-weight: 500;">Все депутаты</a>
+        <!-- Шапка сайта -->
+    <header style="background: rgba(255,255,255,0.95); padding: 10px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;">
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            
+            <!-- Логотип + Название -->
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <a href="https://kprf.ru/" target="_blank" rel="noopener noreferrer" title="Официальный сайт КПРФ">
+                    <img src="{{ url_for('static', filename='kprf-emblem.png') }}" 
+                         alt="КПРФ" 
+                         style="height: 38px; width: auto; display: block; transition: transform 0.2s, filter 0.2s;"
+                         onmouseover="this.style.transform='scale(1.06)'; this.style.filter='drop-shadow(0 2px 4px rgba(0,0,0,0.15))'" 
+                         onmouseout="this.style.transform='scale(1)'; this.style.filter='none'">
+                </a>
+                <a href="{{ url_for('public.index') }}" style="font-size: 1.35rem; font-weight: 700; color: var(--color-primary); text-decoration: none; white-space: nowrap;">
+                    Приёмная депутата
+                </a>
+            </div>
+
+            <!-- Навигация -->
+            <nav style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <a href="{{ url_for('public.public_deputats') }}" style="color: var(--color-link); font-weight: 500;">Все депутаты</a>
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('admin.admin_panel') }}" style="margin-right: 20px; color: var(--color-link); font-weight: 500;">Админ-панель</a>
+                    <a href="{{ url_for('admin.admin_panel') }}" style="color: var(--color-link); font-weight: 500;">Админ-панель</a>
                     <a href="{{ url_for('auth.admin_logout') }}" style="color: var(--color-link);">Выйти</a>
                 {% else %}
-                    <a href="{{ url_for('auth.admin_login') }}" class="admin-link" style="background: var(--color-primary); color: var(--color-text-on-primary); padding: 8px 16px; border-radius: 5px; text-decoration: none;">Вход для депутата</a>
+                    <a href="{{ url_for('auth.admin_login') }}" style="background: var(--color-primary); color: var(--color-text-on-primary); padding: 8px 16px; border-radius: 5px; text-decoration: none; font-weight: 500;">Вход для депутата</a>
                 {% endif %}
             </nav>
         </div>
