@@ -30,17 +30,50 @@ $SSH_CMD "echo '✅ Соединение установлено'" || {
     exit 1
 }
 
-# 3. GitHub: Коммит и пуш
+# 3. GitHub: Коммит и пуш (исправленная логика)
 echo -e "\n${GREEN}2️⃣  GitHub: Отправка кода${NC}"
-read -r -p "📦 GitHub username: " GH_USER
-read -r -s -p "🔑 GitHub Token (PAT): " GH_TOKEN; echo ""
-REPO_URL="https://$GH_USER:$GH_TOKEN@github.com/$GH_USER/kprf.git"
+
+# Определяем GH_USER: из .env → git config → remote URL
+if [ -n "${GH_USER:-}" ]; then
+    echo "👤 Использую GH_USER из .env: $GH_USER"
+elif [ -n "$(git config user.name 2>/dev/null)" ]; then
+    GH_USER=$(git config user.name)
+    echo "👤 Использую имя из git config: $GH_USER"
+else
+    # Пытаемся извлечь из remote URL
+    REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+    if [[ "$REMOTE_URL" =~ github.com[:/]([^/]+)/ ]]; then
+        GH_USER="${BASH_REMATCH[1]}"
+        echo "👤 Определил GH_USER из remote: $GH_USER"
+    else
+        read -r -p "📦 GitHub username: " GH_USER
+    fi
+fi
+
+# Токен: из .env или запрос вручную
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    echo "🔐 Использую GITHUB_TOKEN из .env"
+    GH_AUTH_TOKEN="$GITHUB_TOKEN"
+else
+    read -r -s -p "🔑 GitHub Personal Access Token (PAT): " GH_AUTH_TOKEN; echo ""
+fi
+
+# Формируем корректный URL для пуша
+CURRENT_BRANCH=$(git branch --show-current)
+REPO_URL="https://${GH_USER}:${GH_AUTH_TOKEN}@github.com/${GH_USER}/kprf.git"
 
 git remote set-url origin "$REPO_URL" 2>/dev/null || git remote add origin "$REPO_URL"
 git add .
 git commit -m "🚀 Deploy: $(date '+%Y-%m-%d %H:%M:%S')" || echo "ℹ️  Нет изменений"
-git push origin main || git push origin master
-git remote set-url origin "https://github.com/$GH_USER/kprf.git" # Убираем токен из конфига
+
+# Пушим в текущую ветку (main или master)
+git push origin "$CURRENT_BRANCH" 2>/dev/null || git push origin main 2>/dev/null || git push origin master || {
+    echo -e "${RED}❌ Ошибка пуша. Проверьте токен и права доступа.${NC}"
+    exit 1
+}
+
+# Возвращаем чистый URL (без токена) для безопасности
+git remote set-url origin "https://github.com/${GH_USER}/kprf.git"
 
 # 4. Сервер: Остановка старого сайта и установка пакетов
 echo -e "\n${GREEN}3️⃣  Сервер: Остановка старого сайта и подготовка${NC}"
@@ -65,7 +98,7 @@ cd /opt/kprf
 if [ ! -d ".git" ]; then
     git clone https://github.com/$GH_USER/kprf.git .
 else
-    git pull origin main || git pull origin master
+    git pull origin $CURRENT_BRANCH 2>/dev/null || git pull origin main 2>/dev/null || git pull origin master
 fi
 DEPLOY_EOF
 
