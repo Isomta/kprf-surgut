@@ -1,4 +1,6 @@
 /* deputats.css */
+
+/* === КОНТЕЙНЕР === */
 #deputats-wrapper { 
     display: block !important; 
     visibility: visible !important; 
@@ -8,8 +10,13 @@
     margin: 0 auto; 
     padding: 20px; 
 }
-#deputats-wrapper h2 { text-align: center; margin-bottom: 25px; color: #2c3e50; }
+#deputats-wrapper h2 { 
+    text-align: center; 
+    margin-bottom: 25px; 
+    color: #2c3e50; 
+}
 
+/* === СЕТКА КАРТОЧЕК === */
 #deputats-grid { 
     display: grid !important; 
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important; 
@@ -19,20 +26,72 @@
     margin: 0;
 }
 
+/* === КАРТОЧКА ДЕПУТАТА === */
 .deputat-item { 
     background: #fff; 
     padding: 20px; 
     border-radius: 10px; 
     box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
     text-align: center; 
-    transition: transform 0.2s;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
     display: block !important;
 }
-.deputat-item:hover { transform: translateY(-4px); }
-.deputat-item img { width: 100px; height: 100px; object-fit: cover; border-radius: 50%; border: 3px solid #3498db; margin-bottom: 15px; }
-.deputat-item h3 { margin: 0 0 8px; color: #2c3e50; }
-.deputat-item p { margin: 5px 0; font-size: 13px; color: #555; }
-.deputat-item a { color: #3498db; text-decoration: none; }
-.deputat-item a:hover { text-decoration: underline; }
-.deputat-item .btn-write { display: inline-block; margin-top: 12px; padding: 9px 18px; background: #3498db; color: #fff; border-radius: 6px; text-decoration: none; font-size: 14px; }
-.deputat-item .btn-write:hover { background: #2980b9; }
+.deputat-item:hover { 
+    transform: translateY(-4px); 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+}
+.deputat-item img { 
+    width: 100px; 
+    height: 100px; 
+    object-fit: cover; 
+    border-radius: 50%; 
+    border: 3px solid #C41E3A; /* Ободок фото тоже в фирменный цвет */
+    margin-bottom: 15px; 
+}
+.deputat-item h3 { 
+    margin: 0 0 8px; 
+    color: #2c3e50; 
+    font-size: 1.15rem;
+}
+.deputat-item p { 
+    margin: 5px 0; 
+    font-size: 13px; 
+    color: #555; 
+}
+
+/* === ОБЫЧНЫЕ ССЫЛКИ (телефон, email) === */
+.deputat-item a:not(.btn-write) { 
+    color: #3498db; 
+    text-decoration: none; 
+    transition: color 0.2s;
+}
+.deputat-item a:not(.btn-write):hover { 
+    text-decoration: underline; 
+    color: #2980b9; 
+}
+
+/* === 🔴 КНОПКА "ПЕРЕЙТИ" (Ваш COLOR_PRIMARY) === */
+.deputat-item .btn-write { 
+    display: inline-block; 
+    margin-top: 12px; 
+    padding: 9px 18px; 
+    background: #C41E3A;        /* Ваш основной цвет */
+    border: 2px solid #A31830;  /* Затемнение для рамки */
+    color: #fff; 
+    border-radius: 6px; 
+    text-decoration: none; 
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(196, 30, 58, 0.3);
+}
+.deputat-item .btn-write:hover { 
+    background: #A31830;        /* Темнее при наведении */
+    border-color: #8A1328;
+    transform: scale(1.03);
+    box-shadow: 0 3px 6px rgba(196, 30, 58, 0.4);
+}
+.deputat-item .btn-write:active {
+    transform: scale(0.98);     /* Эффект нажатия */
+    box-shadow: 0 1px 2px rgba(196, 30, 58, 0.3);
+}

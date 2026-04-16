@@ -20,9 +20,11 @@
     <button onclick="showSection('deputats')" id="tabDeputats" class="tab-btn active">Депутаты</button>
     <button onclick="showSection('addresses')" id="tabAddresses" class="tab-btn inactive">Адреса</button>
     <button onclick="showSection('topics')" id="tabTopics" class="tab-btn inactive">Темы</button>
+    <button onclick="showSection('appeals')" id="tabAppeals" class="tab-btn inactive">Обращения</button>
+    <button onclick="showSection('campaigns')" id="tabCampaigns" class="tab-btn inactive">Инициативы</button>
 </div>
 
-<!-- Депутаты -->
+<!-- 1. Депутаты -->
 <div id="sectionDeputats" class="db-section">
     <h3>📋 Депутаты</h3>
     <input type="text" id="searchDeputats" class="search-box" placeholder="Поиск по ФИО или участку...">
@@ -31,12 +33,12 @@
             <thead>
                 <tr>
                     <th>ID</th><th>Участок</th><th>Фото</th><th>ФИО</th><th>Дата рожд.</th>
-                    <th>Образование</th><th>Стаж</th><th>Телефон</th><th>Адрес приемной</th><th>Действия</th>
+                    <th>Образование</th><th>Стаж</th><th>Телефон</th><th>Email</th><th>Приемная</th><th>Пароль</th><th>Биография</th><th>Действия</th>
                 </tr>
             </thead>
             <tbody>
                 {% for d in deputats %}
-                <tr data-fio="{{ d.fio }}" data-uchastok="{{ d.uchastok }}">
+                <tr data-id="{{ d.id }}" data-fio="{{ d.fio }}" data-uchastok="{{ d.uchastok }}">
                     <td>{{ d.user_id }}</td>
                     <td>{{ d.uchastok }}</td>
                     <td>
@@ -45,19 +47,17 @@
                         {% else %}
                             <img src="/static/photos/default.png" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">
                         {% endif %}
-                        <br>
-                        <button class="btn-icon" onclick="uploadPhoto({{ d.id }})">смена</button>
+                        <br><button class="btn-icon" onclick="uploadPhoto({{ d.id }})">смена</button>
                     </td>
-                    <td><input type="text" id="fio_{{ d.id }}" value="{{ d.fio }}" style="width: 150px;"></td>
-                    <td><input type="text" id="birth_{{ d.id }}" value="{{ d.birth_date }}" style="width: 100px;"></td>
+                    <td><input type="text" id="fio_{{ d.id }}" value="{{ d.fio }}" style="width: 130px;"></td>
+                    <td><input type="date" id="birth_{{ d.id }}" value="{{ d.birth_date }}" style="width: 110px;"></td>
                     <td><input type="text" id="edu_{{ d.id }}" value="{{ d.education }}" style="width: 120px;"></td>
-                    <td><input type="text" id="exp_{{ d.id }}" value="{{ d.experience }}" style="width: 80px;"></td>
-                    <td><input type="text" id="phone_{{ d.id }}" value="{{ d.phone }}" style="width: 120px;"></td>
-                    <td><input type="text" id="address_{{ d.id }}" value="{{ d.reception_address }}" style="width: 250px;"></td>
-                    <td>
-                        <input type="password" id="password_{{ d.id }}" placeholder="Новый пароль" 
-                            style="width: 120px; font-size: 12px;" autocomplete="new-password">
-                    </td>
+                    <td><input type="text" id="exp_{{ d.id }}" value="{{ d.experience }}" style="width: 70px;"></td>
+                    <td><input type="text" id="phone_{{ d.id }}" value="{{ d.phone }}" style="width: 110px;"></td>
+                    <td><input type="email" id="email_{{ d.id }}" value="{{ d.email }}" style="width: 130px;"></td>
+                    <td><input type="text" id="address_{{ d.id }}" value="{{ d.reception_address }}" style="width: 160px;"></td>
+                    <td><input type="password" id="password_{{ d.id }}" placeholder="Новый пароль" style="width: 100px; font-size: 12px;" autocomplete="new-password"></td>
+                    <td><textarea id="bio_{{ d.id }}" style="width: 180px; height: 40px;">{{ d.biography or '' }}</textarea></td>
                     <td>
                         <button class="btn-icon" onclick="updateDeputat({{ d.id }})">💾</button>
                         {% if d.user_id != 100 %}
@@ -70,16 +70,17 @@
         </table>
     </div>
     <div class="add-form">
-        <h4 style="width: 100%; margin-bottom: 10px;">➕ Добавить депутата</h4>
-        <input type="text" id="new_user_id" placeholder="ID (число)">
-        <input type="text" id="new_uchastok" placeholder="Участок">
+        <h4>➕ Добавить депутата</h4>
+        <input type="number" id="new_user_id" placeholder="user_id">
+        <input type="number" id="new_uchastok" placeholder="Участок">
         <input type="text" id="new_fio" placeholder="ФИО">
         <input type="text" id="new_password" placeholder="Пароль" value="pass123">
+        <textarea id="new_bio" placeholder="Биография" style="width: 100%; height: 50px;"></textarea>
         <button class="btn-icon btn-success" onclick="addDeputat()">Добавить</button>
     </div>
 </div>
 
-<!-- Адреса -->
+<!-- 2. Адреса -->
 <div id="sectionAddresses" class="db-section" style="display: none;">
     <h3>📍 Адреса (улица + дом → участок)</h3>
     <input type="text" id="searchAddresses" class="search-box" placeholder="Поиск по улице или дому...">
@@ -90,9 +91,9 @@
                 {% for a in addresses %}
                 <tr data-street="{{ a.street }}" data-house="{{ a.house_number }}">
                     <td>{{ a.id }}</td>
-                    <td><input type="number" id="addr_uch_{{ a.id }}" value="{{ a.uchastok }}" style="width: 60px;"></td>
+                    <td><input type="number" id="addr_uch_{{ a.id }}" value="{{ a.uchastok }}" style="width: 70px;"></td>
                     <td><input type="text" id="addr_street_{{ a.id }}" value="{{ a.street }}"></td>
-                    <td><input type="text" id="addr_house_{{ a.id }}" value="{{ a.house_number }}" style="width: 80px;"></td>
+                    <td><input type="text" id="addr_house_{{ a.id }}" value="{{ a.house_number }}" style="width: 90px;"></td>
                     <td>
                         <button class="btn-icon" onclick="updateAddress({{ a.id }})">💾</button>
                         <button class="btn-icon btn-danger" onclick="deleteAddress({{ a.id }})">🗑</button>
@@ -103,15 +104,15 @@
         </table>
     </div>
     <div class="add-form">
-        <h4 style="width: 100%; margin-bottom: 10px;">➕ Добавить адрес</h4>
+        <h4>➕ Добавить адрес</h4>
         <input type="number" id="new_addr_uch" placeholder="Участок">
         <input type="text" id="new_addr_street" placeholder="Улица">
-        <input type="text" id="new_addr_house" placeholder="Номер дома">
+        <input type="text" id="new_addr_house" placeholder="Дом">
         <button class="btn-icon btn-success" onclick="addAddress()">Добавить</button>
     </div>
 </div>
 
-<!-- Темы -->
+<!-- 3. Темы -->
 <div id="sectionTopics" class="db-section" style="display: none;">
     <h3>📝 Темы обращений</h3>
     <div style="overflow-x: auto;">
@@ -119,7 +120,7 @@
             <thead><tr><th>ID</th><th>Название темы</th><th>Действия</th></tr></thead>
             <tbody>
                 {% for t in topics %}
-                <tr>
+                <tr data-name="{{ t.topic_name }}">
                     <td>{{ t.id }}</td>
                     <td><input type="text" id="topic_name_{{ t.id }}" value="{{ t.topic_name }}" style="width: 300px;"></td>
                     <td>
@@ -132,9 +133,86 @@
         </table>
     </div>
     <div class="add-form">
-        <h4 style="width: 100%; margin-bottom: 10px;">➕ Добавить тему</h4>
+        <h4>➕ Добавить тему</h4>
         <input type="text" id="new_topic_name" placeholder="Название темы" style="width: 300px;">
         <button class="btn-icon btn-success" onclick="addTopic()">Добавить</button>
+    </div>
+</div>
+
+<!-- 4. Обращения -->
+<div id="sectionAppeals" class="db-section" style="display: none;">
+    <h3>📨 Обращения граждан</h3>
+    <input type="text" id="searchAppeals" class="search-box" placeholder="Поиск по ФИО, теме или статусу...">
+    <div style="overflow-x: auto;">
+        <table class="db-table" id="appealsTable">
+            <thead>
+                <tr>
+                    <th>ID</th><th>Участок</th><th>Дата</th><th>Тема</th><th>ФИО</th><th>Телефон</th>
+                    <th>Email</th><th>Выезд</th><th>Статус</th><th>Результат</th><th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in appeals %}
+                <tr data-fio="{{ app.fio }}" data-topic="{{ app.topic }}" data-status="{{ app.status }}">
+                    <td>{{ app.id }}</td>
+                    <td><input type="number" id="app_uch_{{ app.id }}" value="{{ app.uchastok }}" style="width: 70px;"></td>
+                    <td><input type="text" id="app_date_{{ app.id }}" value="{{ app.created_at.strftime('%Y-%m-%d %H:%M') if app.created_at else '' }}" readonly style="width: 120px; background: #eee;"></td>
+                    <td><input type="text" id="app_topic_{{ app.id }}" value="{{ app.topic }}" style="width: 150px;"></td>
+                    <td><input type="text" id="app_fio_{{ app.id }}" value="{{ app.fio }}" style="width: 140px;"></td>
+                    <td><input type="text" id="app_phone_{{ app.id }}" value="{{ app.phone }}" style="width: 110px;"></td>
+                    <td><input type="email" id="app_email_{{ app.id }}" value="{{ app.email }}" style="width: 140px;"></td>
+                    <td><input type="checkbox" id="app_visit_{{ app.id }}" {{ 'checked' if app.need_visit }}></td>
+                    <td><input type="text" id="app_status_{{ app.id }}" value="{{ app.status }}" style="width: 100px;"></td>
+                    <td><textarea id="app_result_{{ app.id }}" style="width: 200px; height: 40px;">{{ app.result_text or '' }}</textarea></td>
+                    <td>
+                        <button class="btn-icon" onclick="updateAppeal({{ app.id }})">💾</button>
+                        <button class="btn-icon btn-danger" onclick="deleteAppeal({{ app.id }})">🗑</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="add-form">
+        <h4>➕ Создать обращение</h4>
+        <select id="new_app_uch"><option value="">Выберите участок</option></select>
+        <select id="new_app_topic"><option value="">Выберите тему</option></select>
+        <input type="text" id="new_app_fio" placeholder="ФИО">
+        <input type="text" id="new_app_phone" placeholder="Телефон">
+        <input type="email" id="new_app_email" placeholder="Email">
+        <textarea id="new_app_text" placeholder="Текст обращения" style="width: 100%; height: 50px;"></textarea>
+        <button class="btn-icon btn-success" onclick="addAppeal()">Добавить</button>
+    </div>
+</div>
+
+<!-- 5. Инициативы -->
+<div id="sectionCampaigns" class="db-section" style="display: none;">
+    <h3>🗳 Инициативы и голосования</h3>
+    <div style="overflow-x: auto;">
+        <table class="db-table" id="campaignsTable">
+            <thead><tr><th>ID</th><th>Участок</th><th>Текст инициативы</th><th>За</th><th>Против</th><th>Действия</th></tr></thead>
+            <tbody>
+                {% for c in campaigns %}
+                <tr data-deputat-id="{{ c.deputat_id }}" data-row-id="{{ c.id }}" data-text="{{ c.text }}">
+                    <td>{{ c.id }}</td>
+                    <td><input type="number" id="camp_uch_{{ c.id }}" value="" style="width: 70px;"></td>
+                    <td><input type="text" id="camp_text_{{ c.id }}" value="{{ c.text }}" style="width: 350px;"></td>
+                    <td><input type="number" id="camp_for_{{ c.id }}" value="{{ c.votes_for }}" style="width: 60px;"></td>
+                    <td><input type="number" id="camp_against_{{ c.id }}" value="{{ c.votes_against }}" style="width: 60px;"></td>
+                    <td>
+                        <button class="btn-icon" onclick="updateCampaign({{ c.id }})">💾</button>
+                        <button class="btn-icon btn-danger" onclick="deleteCampaign({{ c.id }})">🗑</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="add-form">
+        <h4>➕ Добавить инициативу</h4>
+        <select id="new_camp_uch"><option value="">Выберите участок</option></select>
+        <input type="text" id="new_camp_text" placeholder="Текст инициативы" style="width: 300px;">
+        <button class="btn-icon btn-success" onclick="addCampaign()">Добавить</button>
     </div>
 </div>
 {% endblock %}

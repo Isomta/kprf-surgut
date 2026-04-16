@@ -259,7 +259,7 @@ input[list] {
 
 /* === ИСПРАВЛЕНИЕ ПЕРЕКРЫТИЯ МОДАЛКИ И КАРТЫ === */
 .modal {
-    z-index: 1050 !important; /* Выше максимального z-index Leaflet (1000) */
+    z-index: 1050 !important;
 }
 .modal-content {
     max-height: 90vh;
@@ -271,7 +271,6 @@ input[list] {
     z-index: 1;
     position: relative;
 }
-/* Сдвигаем атрибуцию OSM, чтобы не мешала, но оставалась видимой (лицензия) */
 .leaflet-control-attribution {
     font-size: 10px !important;
     background: rgba(255,255,255,0.8) !important;
@@ -279,4 +278,73 @@ input[list] {
 }
 .leaflet-control-attribution {
     display: none !important;
+}
+
+/* 🔒🔒🔒 МАКСИМАЛЬНЫЙ ФИКС ВЫПАДАЮЩИХ СПИСКОВ: ВСЕГДА БЕЛЫЙ ФОН, ЧЁРНЫЙ ТЕКСТ 🔒🔒🔒 */
+
+/* Базовый select */
+select {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    color-scheme: light !important;
+    background-image: none !important;
+    text-shadow: none !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+
+/* Все опции внутри select */
+select option,
+select optgroup,
+select > option,
+select > optgroup {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    color-scheme: light !important;
+    background-image: none !important;
+    text-shadow: none !important;
+    -webkit-text-fill-color: #000000 !important;
+}
+
+/* WebKit специфичные стили (Safari, Chrome) */
+select::-webkit-listbox {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    color-scheme: light !important;
+}
+
+select::-ms-expand {
+    display: none;
+}
+
+/* При фокусе и открытии */
+select:focus,
+select:focus option,
+select:active,
+select:active option {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    outline: 2px solid #C41E3A !important;
+    outline-offset: 1px;
+}
+
+/* Состояние выбора */
+select option:checked,
+select option:hover,
+select option:focus,
+select option:active {
+    color: #000000 !important;
+    background-color: #f0f0f0 !important; /* Светло-серый для выделения */
+}
+
+/* Принудительный сброс для всех возможных состояний */
+select,
+select *,
+select *::before,
+select *::after {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    color-scheme: light !important;
 }
