@@ -1,7 +1,9 @@
-// Глобальные переменные
+// ========================= ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =========================
 let currentDeputat = null;
 let lastAddress = null;
 let map = null;
+
+// ========================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =========================
 
 // Скрыть внешнюю карту при выборе депутата
 function hideExternalMap() {
@@ -117,66 +119,134 @@ function initMap(address) {
         });
 }
 
-// Поиск депутата
+// ===================== ОСНОВНАЯ ФУНКЦИЯ ОТОБРАЖЕНИЯ КАРТОЧКИ ДЕПУТАТА =====================
+function showDeputatCard(deputat, stats, topicsStats) {
+    // Заполняем основные поля
+    document.getElementById('deputatName').innerText = deputat.fio;
+    document.getElementById('uchastok').innerText = deputat.uchastok;
+    document.getElementById('birthDate').innerText = deputat.birth_date || '—';
+    document.getElementById('education').innerText = deputat.education || '—';
+    document.getElementById('experience').innerText = deputat.experience || '—';
+    document.getElementById('address').innerText = deputat.reception_address || '—';
+    document.getElementById('phone').innerHTML = deputat.phone 
+        ? `<a href="tel:${deputat.phone}" style="color:var(--color-link);text-decoration:none">${deputat.phone}</a>` 
+        : '—';
+    document.getElementById('email').innerHTML = deputat.email 
+        ? `<a href="mailto:${deputat.email}" style="color:var(--color-link);text-decoration:none">${deputat.email}</a>` 
+        : '—';
+    document.getElementById('deputatPhotoImg').src = deputat.photo || '/static/photos/default.png';
+    
+    // Статистика обращений
+    if (stats) {
+        document.getElementById('totalAppeals').innerText = stats.total || 0;
+        document.getElementById('newAppeals').innerText = stats.new || 0;
+        document.getElementById('inWorkAppeals').innerText = stats.in_work || 0;
+        document.getElementById('completedAppeals').innerText = stats.completed || 0;
+        document.getElementById('rejectedAppeals').innerText = stats.rejected || 0;
+    }
+    
+    // Темы обращений (облако тегов)
+    const topicsDiv = document.getElementById('topicsStats');
+    topicsDiv.innerHTML = '';
+    if (topicsStats && Object.keys(topicsStats).length > 0) {
+        for (const [topic, count] of Object.entries(topicsStats)) {
+            topicsDiv.innerHTML += `<div class="topic-tag">${topic}: ${count}</div>`;
+        }
+    } else {
+        topicsDiv.innerHTML = '<em>Нет обращений</em>';
+    }
+    
+    // Карта
+    if (deputat.reception_address) {
+        initMap(deputat.reception_address);
+    }
+    
+    // ========== НОВЫЙ БЛОК КНОПОК (вставляется после статистики) ==========
+    // Проверяем, есть ли уже контейнер с кнопками, чтобы не дублировать
+    let actionContainer = document.getElementById('deputatActionsContainer');
+    if (!actionContainer) {
+        actionContainer = document.createElement('div');
+        actionContainer.id = 'deputatActionsContainer';
+        actionContainer.style.cssText = 'display: flex; gap: 12px; margin-top: 25px; flex-wrap: wrap;';
+        
+        // Находим блок, куда вставлять (после статистики/тем, внутри карточки)
+        const infoBlock = document.querySelector('#deputatInfo > div > div:last-child');
+        if (infoBlock) {
+            infoBlock.appendChild(actionContainer);
+        } else {
+            // Запасной вариант: вставить в конец #deputatInfo
+            document.getElementById('deputatInfo').appendChild(actionContainer);
+        }
+    }
+    
+    // Очищаем контейнер и добавляем кнопки заново (чтобы избежать дублирования при повторном вызове)
+    actionContainer.innerHTML = '';
+    
+    const createBtn = document.createElement('button');
+    createBtn.className = 'btn';
+    createBtn.onclick = openAppealForm;
+    createBtn.textContent = '➕ Создать обращение';
+    createBtn.style.cssText = 'padding: 12px 28px; background: var(--color-primary); color: var(--color-text-on-primary); border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500;';
+    
+    const viewAllBtn = document.createElement('a');
+    viewAllBtn.href = `/appeals?uchastok=${deputat.uchastok}`;
+    viewAllBtn.className = 'btn';
+    viewAllBtn.textContent = '📋 Все обращения';
+    viewAllBtn.style.cssText = 'padding: 12px 28px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; text-decoration: none; display: inline-block;';
+    
+    actionContainer.appendChild(createBtn);
+    actionContainer.appendChild(viewAllBtn);
+    
+    // Показываем карточку и скрываем ошибку
+    document.getElementById('deputatInfo').style.display = 'block';
+    document.getElementById('searchError').innerText = '';
+    
+    // Сохраняем в глобальные переменные
+    currentDeputat = deputat;
+}
+
+// ========================= ПОИСК ДЕПУТАТА ПО АДРЕСУ =========================
 async function searchDeputat() {
     const street = document.getElementById('street').value.trim();
     const house = document.getElementById('house').value.trim();
     const errorDiv = document.getElementById('searchError');
+    
     if (!street || !house) {
         errorDiv.innerText = 'Введите улицу и номер дома';
         return;
     }
+    
     try {
         const response = await fetch('/api/deputat_by_address', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({street, house})
         });
+        
         if (!response.ok) {
             const error = await response.json();
             errorDiv.innerText = error.error;
             document.getElementById('deputatInfo').style.display = 'none';
             return;
         }
-        const data = await response.json();
-        currentDeputat = data.deputat;
-        document.getElementById('deputatName').innerText = data.deputat.fio;
-        document.getElementById('uchastok').innerText = data.deputat.uchastok;
-        document.getElementById('birthDate').innerText = data.deputat.birth_date;
-        document.getElementById('education').innerText = data.deputat.education;
-        document.getElementById('experience').innerText = data.deputat.experience;
-        document.getElementById('address').innerText = data.deputat.reception_address;
-        document.getElementById('phone').innerText = data.deputat.phone;
-        document.getElementById('email').innerText = data.deputat.email;
-        document.getElementById('deputatPhotoImg').src = data.deputat.photo || '/static/photos/default.png';
-
-        if (data.deputat.reception_address) {
-            initMap(data.deputat.reception_address);
-        }
         
-        document.getElementById('totalAppeals').innerText = data.stats.total;
-        document.getElementById('newAppeals').innerText = data.stats.new;
-        document.getElementById('inWorkAppeals').innerText = data.stats.in_work;
-        document.getElementById('completedAppeals').innerText = data.stats.completed;
-        document.getElementById('rejectedAppeals').innerText = data.stats.rejected;
-        const topicsDiv = document.getElementById('topicsStats');
-        topicsDiv.innerHTML = '';
-        for (const [topic, count] of Object.entries(data.topics_stats)) {
-            topicsDiv.innerHTML += `<div class="topic-tag">${topic}: ${count}</div>`;
-        }
-        document.getElementById('deputatInfo').style.display = 'block';
-        errorDiv.innerText = '';
+        const data = await response.json();
+        // Сохраняем последний адрес для формы обращения
         lastAddress = {street, house};
         
-        // === СКРЫВАЕМ ВНЕШНЮЮ КАРТУ ПРИ УСПЕШНОМ ПОИСКЕ ===
+        // Отображаем карточку через единую функцию
+        showDeputatCard(data.deputat, data.stats, data.topics_stats);
+        
+        // Скрываем внешнюю карту (если есть)
         hideExternalMap();
         
     } catch (error) {
+        console.error(error);
         errorDiv.innerText = 'Ошибка при загрузке данных';
     }
 }
 
-// Загрузка тем для выпадающего списка
+// ========================= ОБРАЩЕНИЯ (МОДАЛЬНОЕ ОКНО) =========================
 async function loadTopics() {
     const select = document.getElementById('topic');
     if (!select) return;
@@ -189,7 +259,6 @@ async function loadTopics() {
     });
 }
 
-// Открыть модальное окно обращения
 function openAppealForm() {
     if (!currentDeputat) {
         alert('Сначала найдите депутата по вашему адресу');
@@ -222,6 +291,7 @@ if (appealForm) {
         const email = document.getElementById('emailInput').value.trim();
         const needVisit = document.getElementById('needVisit').checked;
         const consent = document.getElementById('consent').checked;
+        
         if (!consent) {
             alert('Необходимо согласие на обработку персональных данных');
             return;
@@ -230,6 +300,7 @@ if (appealForm) {
             alert('Заполните обязательные поля: адрес, тему и текст обращения');
             return;
         }
+        
         try {
             const response = await fetch('/api/create_appeal', {
                 method: 'POST',
@@ -240,7 +311,7 @@ if (appealForm) {
                 alert('Обращение успешно отправлено!');
                 closeModal();
                 if (street === lastAddress?.street && house === lastAddress?.house) {
-                    searchDeputat();
+                    searchDeputat(); // обновляем статистику
                 }
             } else {
                 const error = await response.json();
@@ -252,147 +323,42 @@ if (appealForm) {
     });
 }
 
-// Установка текущего года
-document.addEventListener('DOMContentLoaded', () => {
-    const yearSpan = document.getElementById('currentYear');
-    if (yearSpan) {
-        yearSpan.textContent = new Date().getFullYear();
-    }
-});
-
-// Инициализация после загрузки DOM
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('streetList')) {
-        loadStreets();
-    }
-    if (document.getElementById('topic')) {
-        loadTopics();
-    }
-    
-    const streetInput = document.getElementById('street');
-    const modalStreetInput = document.getElementById('modalStreet');
-    
-    if (streetInput) {
-        streetInput.addEventListener('input', (e) => {
-            loadHouses(e.target.value, 'houseList');
-        });
-    }
-    
-    if (modalStreetInput) {
-        modalStreetInput.addEventListener('input', (e) => {
-            loadHouses(e.target.value, 'modalHouseList');
-        });
-    }
-});
-
-// Автопоказ депутата при переходе по ?deputat_id=X
-document.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const deputatId = urlParams.get('deputat_id');
-    
-    if (deputatId && document.getElementById('deputatInfo')) {
-        try {
-            const response = await fetch(`/api/deputat/${deputatId}`);
-            
-            if (!response.ok) {
-                const err = await response.json();
-                document.getElementById('searchError').innerText = err.error || 'Депутат не найден';
-                return;
-            }
-            
-            const data = await response.json();
-            const deputat = data.deputat;
-            
-            currentDeputat = deputat;
-            document.getElementById('deputatName').innerText = deputat.fio;
-            document.getElementById('uchastok').innerText = deputat.uchastok;
-            document.getElementById('birthDate').innerText = deputat.birth_date || '—';
-            document.getElementById('education').innerText = deputat.education || '—';
-            document.getElementById('experience').innerText = deputat.experience || '—';
-            document.getElementById('address').innerText = deputat.reception_address || '—';
-            document.getElementById('phone').innerHTML = deputat.phone 
-                ? `<a href="tel:${deputat.phone}" style="color:var(--color-link);text-decoration:none">${deputat.phone}</a>` 
-                : '—';
-            document.getElementById('email').innerHTML = deputat.email 
-                ? `<a href="mailto:${deputat.email}" style="color:var(--color-link);text-decoration:none">${deputat.email}</a>` 
-                : '—';
-            document.getElementById('deputatPhotoImg').src = deputat.photo || '/static/photos/default.png';
-            
-            if (deputat.reception_address) {
-                initMap(deputat.reception_address);
-            }
-            
-            if (data.stats) {
-                document.getElementById('totalAppeals').innerText = data.stats.total;
-                document.getElementById('newAppeals').innerText = data.stats.new;
-                document.getElementById('inWorkAppeals').innerText = data.stats.in_work;
-                document.getElementById('completedAppeals').innerText = data.stats.completed;
-                document.getElementById('rejectedAppeals').innerText = data.stats.rejected;
-            }
-            
-            const topicsDiv = document.getElementById('topicsStats');
-            topicsDiv.innerHTML = '';
-            if (data.topics_stats && Object.keys(data.topics_stats).length > 0) {
-                for (const [topic, count] of Object.entries(data.topics_stats)) {
-                    topicsDiv.innerHTML += `<div class="topic-tag">${topic}: ${count}</div>`;
-                }
-            } else {
-                topicsDiv.innerHTML = '<em>Нет обращений</em>';
-            }
-            
-            document.getElementById('deputatInfo').style.display = 'block';
-            document.getElementById('searchError').innerText = '';
-            document.getElementById('deputatInfo').scrollIntoView({ behavior: 'smooth' });
-            
-            // === СКРЫВАЕМ ВНЕШНЮЮ КАРТУ ПРИ АВТОЗАГРУЗКЕ ===
-            hideExternalMap();
-            
-        } catch (e) {
-            console.error('Ошибка автозагрузки депутата:', e);
-            document.getElementById('searchError').innerText = 'Ошибка при загрузке данных';
-        }
-    }
-});
-
-// =====================================================================
-// === МОДАЛКА "ПОДРОБНЕЕ" — БИОГРАФИЯ И ПРЕДВЫБОРНАЯ ПРОГРАММА ===
-// =====================================================================
+// ========================= ПОДРОБНЕЕ (БИОГРАФИЯ, ПРОГРАММА) =========================
 async function openDeputatDetails() {
     if (!currentDeputat) {
         alert('Сначала найдите депутата по адресу');
         return;
     }
-
+    
     const modal = document.getElementById('detailsModal');
     const bioEl = document.getElementById('modalBiography');
     const listEl = document.getElementById('campaignPointsList');
-
+    
     if (modal) modal.style.display = 'flex';
     if (bioEl) bioEl.innerText = 'Загрузка данных...';
     if (listEl) listEl.innerHTML = '<p style="text-align:center; color:#777;">⏳ Загрузка программы...</p>';
-
+    
     try {
-        // 🔧 ИСПРАВЛЕНО: currentDeputat.id вместо currentDeputat.user_id
         const res = await fetch(`/api/deputat/${currentDeputat.id}/details`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-
+        
         if (bioEl) bioEl.innerText = data.biography || 'Информация временно отсутствует.';
-
+        
         if (listEl) {
             listEl.innerHTML = '';
             if (!data.points || data.points.length === 0) {
                 listEl.innerHTML = '<p style="text-align:center; color:#999; padding: 20px;">Пункты программы пока не добавлены.</p>';
                 return;
             }
-
+            
             data.points.forEach(p => {
                 const votesFor = p['for'] || 0;
                 const votesAgainst = p['against'] || 0;
                 const total = votesFor + votesAgainst || 1;
                 const forPct = Math.round((votesFor / total) * 100);
                 const againstPct = Math.round((votesAgainst / total) * 100);
-
+                
                 listEl.innerHTML += `
                     <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid var(--color-primary); margin-bottom: 12px;">
                         <p style="font-weight: 500; margin: 0 0 10px; font-size: 15px; color: #333;">${p.text}</p>
@@ -428,8 +394,7 @@ async function votePoint(pointId, type) {
         });
         const data = await res.json();
         if (res.ok) {
-            // Перезагружаем модалку с новыми цифрами
-            openDeputatDetails();
+            openDeputatDetails(); // перезагружаем модалку с новыми цифрами
         } else {
             alert(data.error || 'Ошибка голосования. Возможно, вы уже голосовали.');
         }
@@ -443,4 +408,62 @@ async function votePoint(pointId, type) {
 document.addEventListener('click', (e) => {
     const modal = document.getElementById('detailsModal');
     if (modal && e.target === modal) closeDeputatDetails();
+});
+
+// ========================= АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ДЕПУТАТА ПО ?deputat_id =========================
+async function loadDeputatById(deputatId) {
+    try {
+        const response = await fetch(`/api/deputat/${deputatId}`);
+        if (!response.ok) {
+            const err = await response.json();
+            document.getElementById('searchError').innerText = err.error || 'Депутат не найден';
+            return;
+        }
+        const data = await response.json();
+        showDeputatCard(data.deputat, data.stats, data.topics_stats);
+        hideExternalMap();
+        document.getElementById('deputatInfo').scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+        console.error('Ошибка автозагрузки депутата:', e);
+        document.getElementById('searchError').innerText = 'Ошибка при загрузке данных';
+    }
+}
+
+// ========================= ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ =========================
+document.addEventListener('DOMContentLoaded', () => {
+    // Установка текущего года в футере
+    const yearSpan = document.getElementById('currentYear');
+    if (yearSpan) {
+        yearSpan.textContent = new Date().getFullYear();
+    }
+    
+    // Загрузка списков улиц и тем
+    if (document.getElementById('streetList')) {
+        loadStreets();
+    }
+    if (document.getElementById('topic')) {
+        loadTopics();
+    }
+    
+    // Обработчики для автодополнения домов
+    const streetInput = document.getElementById('street');
+    const modalStreetInput = document.getElementById('modalStreet');
+    
+    if (streetInput) {
+        streetInput.addEventListener('input', (e) => {
+            loadHouses(e.target.value, 'houseList');
+        });
+    }
+    if (modalStreetInput) {
+        modalStreetInput.addEventListener('input', (e) => {
+            loadHouses(e.target.value, 'modalHouseList');
+        });
+    }
+    
+    // Автозагрузка депутата по параметру deputat_id
+    const urlParams = new URLSearchParams(window.location.search);
+    const deputatId = urlParams.get('deputat_id');
+    if (deputatId && document.getElementById('deputatInfo')) {
+        loadDeputatById(deputatId);
+    }
 });

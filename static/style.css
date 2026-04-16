@@ -348,3 +348,33 @@ select *::after {
     background-color: #ffffff !important;
     color-scheme: light !important;
 }
+
+/* ========== СТРАНИЦА "ВСЕ ОБРАЩЕНИЯ" ========== */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+}
+.status-новое { background: #fee2e2; color: #b91c1c; }
+.status-в-работе { background: #fef3c7; color: #b45309; }
+.status-выполнено { background: #dcfce7; color: #15803d; }
+.status-отказано { background: #f3f4f6; color: #4b5563; }
+
+.toggle-btn {
+    transition: background 0.2s;
+}
+.toggle-btn:hover {
+    background: #e5e7eb !important;
+}
+
+/* Адаптив для мобильных */
+@media (max-width: 768px) {
+    .container { padding: 10px !important; }
+    form[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+    table { min-width: 100% !important; font-size: 13px; }
+    th, td { padding: 10px 8px !important; }
+}

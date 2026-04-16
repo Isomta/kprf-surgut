@@ -1,22 +1,21 @@
 import os
+
 from dotenv import load_dotenv
 from flask import Flask
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_wtf import CSRFProtect
 
-# Импорт конфигурации темы
-from config import (
-    COLOR_PRIMARY, COLOR_PRIMARY_HOVER, COLOR_PRIMARY_LIGHT,
-    COLOR_TEXT_ON_PRIMARY, COLOR_LINK, COLOR_LINK_HOVER, COLOR_ACCENT,
-    BACKGROUND_IMAGE, BACKGROUND_SIZE, BACKGROUND_POSITION,
-    BACKGROUND_REPEAT, BACKGROUND_ATTACHMENT, BACKGROUND_OVERLAY
-)
-
 from blueprints.admin import admin_bp
 from blueprints.auth import auth_bp
 from blueprints.public import public_bp
 from blueprints.superadmin import superadmin_bp
+# Импорт конфигурации темы
+from config import (BACKGROUND_ATTACHMENT, BACKGROUND_IMAGE,
+                    BACKGROUND_OVERLAY, BACKGROUND_POSITION, BACKGROUND_REPEAT,
+                    BACKGROUND_SIZE, COLOR_ACCENT, COLOR_LINK,
+                    COLOR_LINK_HOVER, COLOR_PRIMARY, COLOR_PRIMARY_HOVER,
+                    COLOR_PRIMARY_LIGHT, COLOR_TEXT_ON_PRIMARY)
 from models import Deputat, db
 
 load_dotenv()

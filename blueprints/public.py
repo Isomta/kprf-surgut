@@ -1,9 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, render_template, request
+from sqlalchemy import or_
+from flask import Blueprint, jsonify, render_template, request, session
 
-from models import AddressBoundary, Appeal, Deputat, TopicStats, db, CampaignPoint
-from flask import session
+from models import (AddressBoundary, Appeal, CampaignPoint, Deputat,
+                    TopicStats, db)
+
 public_bp = Blueprint('public', __name__)
 
 
@@ -168,3 +170,56 @@ def vote_campaign():
     session['voted_points'] = voted
     db.session.commit()
     return jsonify({'success': True, 'for': point.votes_for, 'against': point.votes_against})
+
+
+@public_bp.route('/appeals')
+def all_appeals():
+    query = Appeal.query
+
+    # Получаем параметры фильтров
+    q = request.args.get('q', '').strip()
+    status = request.args.get('status')
+    topic = request.args.get('topic')
+    uchastok = request.args.get('uchastok')
+    visit_only = request.args.get('visit') == '1'
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+    sort_by = request.args.get('sort', 'date_desc')
+
+    # Применяем фильтры
+    if q:
+        query = query.filter(or_(Appeal.topic.ilike(f'%{q}%'), Appeal.text.ilike(f'%{q}%')))
+    if status:
+        query = query.filter(Appeal.status == status)
+    if topic:
+        query = query.filter(Appeal.topic == topic)
+    if uchastok:
+        query = query.filter(Appeal.uchastok == int(uchastok))
+    if visit_only:
+        query = query.filter(Appeal.need_visit == True)
+    if date_from:
+        query = query.filter(Appeal.created_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+    if date_to:
+        query = query.filter(Appeal.created_at <= datetime.strptime(date_to, '%Y-%m-%d') + timedelta(hours=23, minutes=59))
+
+    # Сортировка
+    if sort_by == 'date_asc':
+        query = query.order_by(Appeal.created_at.asc())
+    elif sort_by == 'topic':
+        query = query.order_by(Appeal.topic.asc())
+    elif sort_by == 'status':
+        query = query.order_by(Appeal.status.asc())
+    else:
+        query = query.order_by(Appeal.created_at.desc())
+
+    appeals = query.all()
+
+    # Справочники для фильтров
+    topics = TopicStats.query.order_by(TopicStats.topic_name).all()
+    uchastoks = db.session.query(Appeal.uchastok).distinct().order_by(Appeal.uchastok).all()
+    uchastoks = [u[0] for u in uchastoks]
+
+    return render_template('appeals.html',
+                           appeals=appeals,
+                           topics=topics,
+                           uchastoks=uchastoks)

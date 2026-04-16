@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Все обращения{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1300px; margin: 0 auto; padding: 20px;">
+    <h2 style="text-align: center; margin-bottom: 25px; color: var(--color-primary);">📋 Публичный реестр обращений</h2>
+
+    <!-- Форма фильтров -->
+    <form method="GET" action="/appeals" style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 25px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <input type="text" name="q" placeholder="🔍 Поиск по теме/тексту..." value="{{ request.args.get('q', '') }}" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+            
+            <select name="status" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; color: #000;">
+                <option value="">Все статусы</option>
+                <option value="Новое" {% if request.args.get('status')=='Новое' %}selected{% endif %}>Новое</option>
+                <option value="В работе" {% if request.args.get('status')=='В работе' %}selected{% endif %}>В работе</option>
+                <option value="Выполнено" {% if request.args.get('status')=='Выполнено' %}selected{% endif %}>Выполнено</option>
+                <option value="Отказано" {% if request.args.get('status')=='Отказано' %}selected{% endif %}>Отказано</option>
+            </select>
+
+            <select name="topic" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; color: #000;">
+                <option value="">Все темы</option>
+                {% for t in topics %}
+                <option value="{{ t.topic_name }}" {% if request.args.get('topic')==t.topic_name %}selected{% endif %}>{{ t.topic_name }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="uchastok" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; color: #000;">
+                <option value="">Все участки</option>
+                {% for u in uchastoks %}
+                <option value="{{ u }}" {% if request.args.get('uchastok')|string == u|string %}selected{% endif %}>Участок №{{ u }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="date" name="date_from" value="{{ request.args.get('date_from', '') }}" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; color: #000;">
+            <input type="date" name="date_to" value="{{ request.args.get('date_to', '') }}" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; color: #000;">
+
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #333; font-size: 14px;">
+                <input type="checkbox" name="visit" style="width: 18px; height: 18px;" {% if request.args.get('visit') %}checked{% endif %}>
+                Только с выездом депутата 🚗
+            </label>
+
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <select name="sort" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; color: #000;">
+                    <option value="date_desc" {% if request.args.get('sort')=='date_desc' or not request.args.get('sort') %}selected{% endif %}>📅 Сначала новые</option>
+                    <option value="date_asc" {% if request.args.get('sort')=='date_asc' %}selected{% endif %}>📅 Сначала старые</option>
+                    <option value="status" {% if request.args.get('sort')=='status' %}selected{% endif %}>📊 По статусу</option>
+                </select>
+                <button type="submit" class="btn" style="padding: 10px 20px;">Применить</button>
+                <a href="/appeals" class="btn" style="padding: 10px 20px; background: #95a5a6; text-decoration: none;">Сбросить</a>
+            </div>
+        </div>
+    </form>
+
+    <!-- Таблица -->
+    <div style="overflow-x: auto; background: white; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+        <table style="width: 100%; border-collapse: collapse; min-width: 800px;">
+            <thead>
+                <tr style="background: #f8f9fa; border-bottom: 2px solid #eee;">
+                    <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #444;">ID</th>
+                    <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #444;">Дата</th>
+                    <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #444;">Участок</th>
+                    <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #444;">Тема</th>
+                    <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #444;">Статус</th>
+                    <th style="padding: 12px 15px; text-align: center; font-weight: 600; color: #444;">Выезд</th>
+                    <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #444; width: 35%;">Текст обращения</th>
+                    <th style="padding: 12px 15px; text-align: left; font-weight: 600; color: #444;">Результат</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in appeals %}
+                <tr style="border-bottom: 1px solid #f0f0f0; transition: background 0.2s;" onmouseover="this.style.background='#fafafa'" onmouseout="this.style.background='#fff'">
+                    <td style="padding: 12px 15px; color: #666; font-size: 13px;">#{{ app.id }}</td>
+                    <td style="padding: 12px 15px; white-space: nowrap;">{{ app.created_at.strftime('%d.%m.%Y') }}</td>
+                    <td style="padding: 12px 15px; font-weight: 500;">№{{ app.uchastok }}</td>
+                    <td style="padding: 12px 15px;">{{ app.topic }}</td>
+                    <td style="padding: 12px 15px;">
+                        <span class="status-badge status-{{ app.status|replace(' ', '-')|lower }}">{{ app.status }}</span>
+                    </td>
+                    <td style="padding: 12px 15px; text-align: center; font-size: 18px;">{{ '🚗' if app.need_visit else '—' }}</td>
+                    <td style="padding: 12px 15px; font-size: 14px; line-height: 1.5;">
+                        <span class="short-text">{{ app.text[:120] }}{% if app.text|length > 120 %}...{% endif %}</span>
+                        {% if app.text|length > 120 %}
+                        <span class="full-text" style="display: none; white-space: pre-wrap;">{{ app.text }}</span>
+                        <button class="toggle-btn" onclick="toggleText(this)" style="margin-left: 8px; padding: 2px 8px; background: #f0f0f0; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Развернуть</button>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 12px 15px; font-size: 14px; color: #555;">{{ app.result_text or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not appeals %}
+    <div style="text-align: center; padding: 40px; color: #666; background: white; border-radius: 12px; margin-top: 20px;">
+        <p style="font-size: 18px;">📭 Обращений не найдено</p>
+        <p style="font-size: 14px;">Попробуйте изменить параметры поиска или сбросить фильтры.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleText(btn) {
+    const row = btn.closest('td');
+    const short = row.querySelector('.short-text');
+    const full = row.querySelector('.full-text');
+    
+    if (full.style.display === 'none') {
+        short.style.display = 'none';
+        full.style.display = 'inline';
+        btn.textContent = 'Свернуть';
+    } else {
+        short.style.display = 'inline';
+        full.style.display = 'none';
+        btn.textContent = 'Развернуть';
+    }
+}
+</script>
+{% endblock %}

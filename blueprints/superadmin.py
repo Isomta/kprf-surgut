@@ -8,7 +8,8 @@ from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
 # === Добавлены CampaignPoint и Appeal ===
-from models import AddressBoundary, CampaignPoint, Appeal, Deputat, TopicStats, db
+from models import (AddressBoundary, Appeal, CampaignPoint, Deputat,
+                    TopicStats, db)
 
 superadmin_bp = Blueprint('superadmin', __name__)
 
