@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Приёмная депутата КПРФ{% endblock %}</title>
+    <title>{% block title %}Приёмная кандидата КПРФ{% endblock %}</title>
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicons/favicon-16x16.png') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicons/favicon-32x32.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicons/apple-touch-icon.png') }}">
@@ -94,18 +94,18 @@
                          onmouseout="this.style.transform='scale(1)'; this.style.filter='none'">
                 </a>
                 <a href="{{ url_for('public.index') }}" style="font-size: 1.35rem; font-weight: 700; color: var(--color-primary); text-decoration: none; white-space: nowrap;">
-                    Приёмная депутата
+                    Приёмная кандидата
                 </a>
             </div>
 
             <!-- Навигация -->
             <nav style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-                <a href="{{ url_for('public.public_deputats') }}" style="color: var(--color-link); font-weight: 500;">Все депутаты</a>
+                <a href="{{ url_for('public.public_deputats') }}" style="color: var(--color-link); font-weight: 500;">Все кандидаты</a>
                 {% if current_user.is_authenticated %}
                     <a href="{{ url_for('admin.admin_panel') }}" style="color: var(--color-link); font-weight: 500;">Админ-панель</a>
                     <a href="{{ url_for('auth.admin_logout') }}" style="color: var(--color-link);">Выйти</a>
                 {% else %}
-                    <a href="{{ url_for('auth.admin_login') }}" style="background: var(--color-primary); color: var(--color-text-on-primary); padding: 8px 16px; border-radius: 5px; text-decoration: none; font-weight: 500;">Вход для депутата</a>
+                    <a href="{{ url_for('auth.admin_login') }}" style="background: var(--color-primary); color: var(--color-text-on-primary); padding: 8px 16px; border-radius: 5px; text-decoration: none; font-weight: 500;">Вход для кандидата</a>
                 {% endif %}
             </nav>
         </div>
@@ -118,7 +118,7 @@
 
     <!-- Футер -->
     <footer style="background: rgba(255,255,255,0.95); padding: 20px; text-align: center; color: #666; border-top: 1px solid #eee;">
-        <p style="margin: 0;">&copy; <span id="currentYear">{{ now.year if now else 2026 }}</span> Приёмная депутата. Все права защищены.</p>
+        <p style="margin: 0;">&copy; <span id="currentYear">{{ now.year if now else 2026 }}</span> Приёмная кандидата. Все права защищены.</p>
     </footer>
 
     <!-- Leaflet JS -->

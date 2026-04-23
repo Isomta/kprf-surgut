@@ -174,7 +174,7 @@ def vote_campaign():
 
 @public_bp.route('/appeals')
 def all_appeals():
-    query = Appeal.query
+    query = Appeal.query.filter(Appeal.is_approved == True)
 
     # Получаем параметры фильтров
     q = request.args.get('q', '').strip()
@@ -188,7 +188,8 @@ def all_appeals():
 
     # Применяем фильтры
     if q:
-        query = query.filter(or_(Appeal.topic.ilike(f'%{q}%'), Appeal.text.ilike(f'%{q}%')))
+        query = query.filter(or_(Appeal.topic.ilike(
+            f'%{q}%'), Appeal.text.ilike(f'%{q}%')))
     if status:
         query = query.filter(Appeal.status == status)
     if topic:
@@ -198,9 +199,11 @@ def all_appeals():
     if visit_only:
         query = query.filter(Appeal.need_visit == True)
     if date_from:
-        query = query.filter(Appeal.created_at >= datetime.strptime(date_from, '%Y-%m-%d'))
+        query = query.filter(Appeal.created_at >=
+                             datetime.strptime(date_from, '%Y-%m-%d'))
     if date_to:
-        query = query.filter(Appeal.created_at <= datetime.strptime(date_to, '%Y-%m-%d') + timedelta(hours=23, minutes=59))
+        query = query.filter(Appeal.created_at <= datetime.strptime(
+            date_to, '%Y-%m-%d') + timedelta(hours=23, minutes=59))
 
     # Сортировка
     if sort_by == 'date_asc':
@@ -216,7 +219,8 @@ def all_appeals():
 
     # Справочники для фильтров
     topics = TopicStats.query.order_by(TopicStats.topic_name).all()
-    uchastoks = db.session.query(Appeal.uchastok).distinct().order_by(Appeal.uchastok).all()
+    uchastoks = db.session.query(
+        Appeal.uchastok).distinct().order_by(Appeal.uchastok).all()
     uchastoks = [u[0] for u in uchastoks]
 
     return render_template('appeals.html',

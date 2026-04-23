@@ -89,3 +89,27 @@ document.addEventListener('click', (e) => {
     const modal = document.getElementById('fullTextModal');
     if (e.target === modal) closeFullTextModal();
 });
+
+function toggleApproval(appealId) {
+    fetch(`/admin/appeal/${appealId}/toggle_approval`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const badge = document.getElementById(`badge_${appealId}`);
+            const btn = document.getElementById(`btn_approve_${appealId}`);
+            
+            badge.textContent = data.label;
+            badge.className = `approval-badge ${data.is_approved ? 'approved' : 'pending'}`;
+            btn.textContent = data.is_approved ? 'Скрыть' : 'Одобрить';
+        } else {
+            alert('Ошибка: ' + (data.error || 'Не удалось изменить статус'));
+        }
+    })
+    .catch(err => {
+        console.error('Ошибка запроса:', err);
+        alert('Ошибка сети. Попробуйте позже.');
+    });
+}

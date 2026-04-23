@@ -16,3 +16,22 @@
 .pagination span.disabled { background: #bdc3c7; cursor: not-allowed; }
 .pagination span.active { background: #2c3e50; cursor: default; }
 .pagination .ellipsis { color: #7f8c8d; }
+
+.approval-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.approval-badge.approved {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+.approval-badge.pending {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}

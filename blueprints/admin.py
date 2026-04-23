@@ -42,3 +42,22 @@ def update_appeal(appeal_id):
     appeal.result_text = data.get('result_text', appeal.result_text)
     db.session.commit()
     return jsonify({'success': True})
+
+
+@admin_bp.route('/admin/appeal/<int:appeal_id>/toggle_approval', methods=['POST'])
+@login_required
+def toggle_approval(appeal_id):
+    appeal = Appeal.query.get_or_404(appeal_id)
+    # Депутат может менять статус только на своём участке
+    if appeal.uchastok != current_user.uchastok:
+        return jsonify({'error': 'Доступ запрещен'}), 403
+
+    # Переключаем статус (False -> True или True -> False)
+    appeal.is_approved = not appeal.is_approved
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'is_approved': appeal.is_approved,
+        'label': '✅ Одобрено' if appeal.is_approved else '⏳ На модерации'
+    })

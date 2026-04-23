@@ -80,6 +80,7 @@
                     <th onclick="sortTable(6)" style="cursor: pointer;">Визит ↕</th>
                     <th onclick="sortTable(7)" style="cursor: pointer;">Статус ↕</th>
                     <th>Результат</th>
+                    <th>Модерация</th>
                     <th>Действия</th>
                 </tr>
             </thead>
@@ -101,6 +102,14 @@
                     <td class="status-{{ appeal.status.lower().replace(' ', '-').replace('ё', 'е') }}">{{ appeal.status }}</td>
                     <td>
                         <textarea id="result_{{ appeal.id }}" rows="2" style="width: 200px;" placeholder="Результат работы...">{{ appeal.result_text or '' }}</textarea>
+                    </td>
+                    <td>
+                        <span id="badge_{{ appeal.id }}" class="approval-badge {% if appeal.is_approved %}approved{% else %}pending{% endif %}">
+                            {% if appeal.is_approved %}✅ Одобрено{% else %}⏳ На модерации{% endif %}
+                        </span><br>
+                        <button class="btn-small" id="btn_approve_{{ appeal.id }}" onclick="toggleApproval({{ appeal.id }})">
+                            {% if appeal.is_approved %}Скрыть{% else %}Одобрить{% endif %}
+                        </button>
                     </td>
                     <td>
                         <select id="status_{{ appeal.id }}">

@@ -44,6 +44,7 @@ class Appeal(db.Model):
     need_visit = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(50), default='Новое')
     status_date = db.Column(db.DateTime)
+    is_approved = db.Column(db.Boolean, default=False, nullable=False)
     result_text = db.Column(db.Text)
 
 
