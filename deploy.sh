@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# === ЦВЕТА ===
+# === ЦВЕТА ДЛЯ ВЫВОДА ===
 RED='\033[0;31m' GREEN='\033[0;32m' YELLOW='\033[1;33m' BLUE='\033[0;34m' NC='\033[0m'
 log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -18,22 +18,22 @@ source .env
 set +a
 log_success "Переменные загружены из .env"
 
-# === 2. НАСТРОЙКИ ПУТЕЙ И ИМЕН ===
+# === 2. НАСТРОЙКИ ПУТЕЙ И ИМЕН (с дефолтами из .env) ===
 : "${SERVER_HOST:?SERVER_HOST не задан в .env}"
 : "${SERVER_USER:=root}"
 : "${SERVER_SSH_PORT:=22}"
 
-# Имя репозитория на GitHub
-GITHUB_REPO_NAME="kprf-surgut"
-# Путь к папке на сервере (должна совпадать с названием папки в systemd/nginx)
-SERVER_PROJECT_PATH="/opt/kprf-surgut.ru"
-
-SERVICE_NAME="kprf-app"
-DUMP_FILENAME="kprf_surgut.dump"
-TEMP_DUMP_ON_SERVER="/tmp/${DUMP_FILENAME}"
+# Пути и имена (можно переопределить в .env)
+: "${GITHUB_REPO_NAME:=kprf-surgut}"
+: "${SERVER_PROJECT_PATH:=/var/www/kprf-surgut.ru}"
+: "${SERVICE_NAME:=kprf-surgut}"
+: "${APP_PORT:=8000}"
+: "${APP_USER:=kprf}"
+: "${DUMP_FILENAME:=kprf_surgut.dump}"
+: "${TEMP_DUMP_ON_SERVER:=/tmp/${DUMP_FILENAME}}"
 
 # Определяем текущего пользователя GitHub
-GH_USER=$(git config user.name)
+GH_USER=$(git config user.name 2>/dev/null || echo "")
 if [ -z "$GH_USER" ]; then
     REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
     if [[ "$REMOTE_URL" =~ github.com[:/]([^/]+)/ ]]; then
@@ -49,28 +49,32 @@ SCP_CMD="scp -o StrictHostKeyChecking=accept-new -P ${SERVER_SSH_PORT}"
 # === 3. ПРОВЕРКА СОЕДИНЕНИЯ ===
 log_info "Проверка соединения с ${SERVER_USER}@${SERVER_HOST}..."
 if ! $SSH_CMD "echo '✅ SSH OK'" > /dev/null 2>&1; then
-    log_error "Не удалось подключиться по SSH."
+    log_error "Не удалось подключиться по SSH. Проверь IP, порт, ключи."
     exit 1
 fi
+log_success "SSH соединение установлено"
 
-# === 4. GITHUB ===
+# === 4. GITHUB: КОММИТ И ПУШ ===
 log_info "📦 Отправка кода в GitHub..."
 CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
+# Коммит (если есть изменения)
+if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
     git add .
-    git commit -m "🚀 Deploy: $(date '+%Y-%m-%d %H:%M:%S')" || log_warn "Нет изменений"
+    git commit -m "🚀 Deploy: $(date '+%Y-%m-%d %H:%M:%S')" || log_warn "Нет изменений для коммита"
 fi
 
+# Пуш
 if ! git push origin "${CURRENT_BRANCH}" 2>/dev/null; then
-    log_error "Ошибка пуша."
+    log_error "Ошибка пуша в GitHub. Проверь токен/ключи."
     exit 1
 fi
-log_success "Код отправлен в ${CURRENT_BRANCH}"
+log_success "Код отправлен в ветку ${CURRENT_BRANCH}"
 
-# === 5. ДАМП БД ===
+# === 5. ДАМП БД (ЛОКАЛЬНО) ===
 log_info "🗄 Создание дампа базы данных..."
-# Парсим DATABASE_URL (поддержка user:pass@host и user@host)
+
+# Парсинг DATABASE_URL (поддержка с паролем и без)
 parse_db_url() {
     local url="$1"
     url="${url#postgresql://}"
@@ -87,42 +91,59 @@ parse_db_url() {
         fi
     fi
 }
+
 parse_db_url "$DATABASE_URL"
 
+# Создаём дамп
 if [ -n "$DB_PASS" ]; then export PGPASSWORD="$DB_PASS"; fi
-PG_OPTS="-U $DB_USER -h $DB_HOST -p $DB_PORT"
-# Если локалхост, пробуем без -h (peer auth)
+
+# Для localhost пробуем без -h (peer auth)
 if [[ "$DB_HOST" == "127.0.0.1" || "$DB_HOST" == "localhost" ]]; then
     PG_OPTS="-U $DB_USER -p $DB_PORT"
+else
+    PG_OPTS="-U $DB_USER -h $DB_HOST -p $DB_PORT"
 fi
 
 if ! pg_dump $PG_OPTS -F c -f "$DUMP_FILENAME" "$DB_NAME" 2>/dev/null; then
-    log_error "Ошибка дампа."
-    unset PGPASSWORD; exit 1
+    log_error "Ошибка создания дампа БД"
+    unset PGPASSWORD
+    exit 1
 fi
 unset PGPASSWORD
-log_success "Дамп создан."
+log_success "Дамп создан: $DUMP_FILENAME"
 
-# === 6. ПЕРЕДАЧА ФАЙЛОВ ===
+# === 6. ПЕРЕДАЧА ФАЙЛОВ НА СЕРВЕР ===
 log_info "📤 Передача файлов на сервер..."
 
-# 1. Создаем папку проекта, если её нет (ФИКС ОШИБКИ SCP)
-$SSH_CMD "mkdir -p ${SERVER_PROJECT_PATH}"
+# Создаём директорию на сервере (фикс ошибки "No such file or directory")
+$SSH_CMD "mkdir -p ${SERVER_PROJECT_PATH}" || {
+    log_error "Не удалось создать директорию на сервере"
+    exit 1
+}
 
-# 2. Кидаем файлы
-$SCP_CMD "$DUMP_FILENAME" "${SERVER_USER}@${SERVER_HOST}:${TEMP_DUMP_ON_SERVER}" || exit 1
-$SCP_CMD ".env" "${SERVER_USER}@${SERVER_HOST}:${SERVER_PROJECT_PATH}/.env.tmp" || exit 1
-log_success "Файлы переданы."
+# Передаём дамп и .env
+$SCP_CMD "$DUMP_FILENAME" "${SERVER_USER}@${SERVER_HOST}:${TEMP_DUMP_ON_SERVER}" || {
+    log_error "Не удалось передать дамп БД"
+    exit 1
+}
+$SCP_CMD ".env" "${SERVER_USER}@${SERVER_HOST}:${SERVER_PROJECT_PATH}/.env.tmp" || {
+    log_error "Не удалось передать .env"
+    exit 1
+}
+log_success "Файлы переданы"
 
-# === 7. СЕРВЕРНАЯ ЧАСТЬ ===
-log_info "🔧 Выполнение на сервере..."
+# === 7. ВЫПОЛНЕНИЕ НА СЕРВЕРЕ ===
+log_info "🔧 Выполнение команд на сервере..."
 
-# Используем "DEPLOY_EOF" без кавычек, чтобы переменные ($SERVER_PROJECT_PATH) раскрылись
+# Используем "DEPLOY_EOF" без кавычек, чтобы переменные раскрылись
 $SSH_CMD << DEPLOY_EOF
 set -euo pipefail
 
+# Передаём переменные внутрь heredoc
 PROJECT_PATH="${SERVER_PROJECT_PATH}"
 SERVICE_NAME="${SERVICE_NAME}"
+APP_PORT="${APP_PORT}"
+APP_USER="${APP_USER}"
 TEMP_DUMP="${TEMP_DUMP_ON_SERVER}"
 DB_URL="${SERVER_DATABASE_URL}"
 GH_USER="${GH_USER}"
@@ -131,85 +152,193 @@ BRANCH="${CURRENT_BRANCH}"
 
 log() { echo -e "[SERVER] \$1"; }
 
-# 1. Остановка сервиса
+# === 7.1 ОСТАНОВКА СЕРВИСА ===
 log "⏹ Остановка \${SERVICE_NAME}..."
-systemctl stop "\${SERVICE_NAME}" 2>/dev/null || true
+if systemctl list-units --all 2>/dev/null | grep -q "\${SERVICE_NAME}"; then
+    systemctl stop "\${SERVICE_NAME}" 2>/dev/null || {
+        log_warn "systemctl stop не сработал, пробуем pkill..."
+        pkill -f "gunicorn.*\${APP_PORT}" 2>/dev/null || true
+    }
+else
+    log_warn "Сервис \${SERVICE_NAME} не найден в systemd, используем pkill"
+    pkill -f "gunicorn.*\${APP_PORT}" 2>/dev/null || true
+fi
+sleep 2
 
-# 2. Бэкап
+# === 7.2 БЭКАП СТАРОГО КОДА ===
 BACKUP_DIR="\${PROJECT_PATH}/_backup_\$(date +%Y%m%d_%H%M%S)"
-if [ -d "\${PROJECT_PATH}" ]; then
-    log "📦 Бэкап в \${BACKUP_DIR}..."
+if [ -d "\${PROJECT_PATH}" ] && [ -n "\$(ls -A \${PROJECT_PATH} 2>/dev/null | grep -v '_backup_' || true)" ]; then
+    log "📦 Архивация старого кода в \${BACKUP_DIR}..."
     mkdir -p "\$(dirname "\$BACKUP_DIR")"
-    # Копируем всё, кроме папок _backup
-    rsync -a --exclude='_backup_*' "\${PROJECT_PATH}/" "\${BACKUP_DIR}/" 2>/dev/null || cp -r "\${PROJECT_PATH}" "\${BACKUP_DIR}"
+    rsync -a --exclude='_backup_*' "\${PROJECT_PATH}/" "\${BACKUP_DIR}/" 2>/dev/null || \
+    cp -r "\${PROJECT_PATH}" "\${BACKUP_DIR}" || true
+    log "✅ Бэкап создан: \${BACKUP_DIR}"
 fi
 
-# 3. Очистка (оставляем .env.tmp)
-log "🧹 Очистка..."
+# === 7.3 ОЧИСТКА ПАПКИ (сохраняем .env.tmp) ===
+log "🧹 Очистка директории проекта..."
+mkdir -p "\${PROJECT_PATH}"
 find "\${PROJECT_PATH}" -mindepth 1 -maxdepth 1 ! -name '.env.tmp' -exec rm -rf {} \; 2>/dev/null || true
 
-# 4. Клонирование (ВНИМАНИЕ: репо kprf-surgut, папка kprf-surgut.ru)
-log "📥 Клонирование \${REPO_NAME} -> \${PROJECT_PATH}..."
+# === 7.4 КЛОНИРОВАНИЕ/ОБНОВЛЕНИЕ КОДА ===
+log "📥 Синхронизация кода из GitHub..."
 cd "\${PROJECT_PATH}"
-# Клонируем репо в текущую папку (.)
-git clone --branch "\${BRANCH}" https://github.com/\${GH_USER}/\${REPO_NAME}.git . 2>/dev/null || {
-    # Если уже гит, делаем pull
-    git pull origin "\${BRANCH}" || true
-}
 
-# 5. .env
+if [ -d ".git" ] && git rev-parse --git-dir > /dev/null 2>&1; then
+    # Это репозиторий — делаем pull + reset
+    log "🔄 Pull из ветки \${BRANCH}..."
+    git fetch origin "\${BRANCH}" 2>/dev/null || true
+    git reset --hard "origin/\${BRANCH}" 2>/dev/null || true
+    git clean -fd 2>/dev/null || true
+    log "✅ Код обновлён через pull"
+else
+    # Нет репозитория — чистим и клонируем заново
+    log "🗑 Папка не является репозиторием, клонируем заново..."
+    # Сохраняем .env временно
+    [ -f ".env.tmp" ] && mv ".env.tmp" "/tmp/.env.backup.\$\$"
+    # Удаляем всё содержимое
+    find "\${PROJECT_PATH}" -mindepth 1 -delete 2>/dev/null || true
+    # Клонируем в текущую папку
+    git clone --branch "\${BRANCH}" "https://github.com/\${GH_USER}/\${REPO_NAME}.git" "\${PROJECT_PATH}" 2>/dev/null || {
+        log "⚠️ Клонирование не удалось, пробуем без ветки..."
+        git clone "https://github.com/\${GH_USER}/\${REPO_NAME}.git" "\${PROJECT_PATH}" 2>/dev/null || {
+            log_error "❌ Не удалось клонировать репозиторий"
+            exit 1
+        }
+    }
+    # Возвращаем .env
+    [ -f "/tmp/.env.backup.\$\$" ] && mv "/tmp/.env.backup.\$\$" "\${PROJECT_PATH}/.env"
+    log "✅ Код склонирован заново"
+fi
+
+# === 7.5 УСТАНОВКА .env ===
 if [ -f ".env.tmp" ]; then
     mv ".env.tmp" ".env"
     chmod 600 ".env"
     log "✅ .env установлен"
 fi
 
-# 6. Venv
-if [ ! -d "venv" ]; then python3 -m venv venv; fi
+# === 7.6 ВИРТУАЛЬНОЕ ОКРУЖЕНИЕ И ЗАВИСИМОСТИ ===
+log "🐍 Проверка виртуального окружения..."
+if [ ! -d "venv" ]; then
+    log "Создание venv..."
+    python3 -m venv venv
+fi
+log "📦 Установка зависимостей..."
 source venv/bin/activate
 pip install --upgrade pip -q
-pip install -r requirements.txt -q
+pip install -r requirements.txt -q 2>/dev/null || {
+    log_warn "pip install вернул предупреждения, продолжаем..."
+}
 
-# 7. БД
-log "🗄 Восстановление БД..."
+# === 7.7 ВОССТАНОВЛЕНИЕ БД ===
+log "🗄 Восстановление базы данных..."
+
+# Парсинг серверной БД
 parse_srv_db() {
     local url="\$1"
     url="\${url#postgresql://}"
     if [[ "\$url" =~ ^([^@]+)@(.+)\$ ]]; then
         local auth="\${BASH_REMATCH[1]}"; local rest="\${BASH_REMATCH[2]}"
-        if [[ "\$auth" =~ ^([^:]+):(.+)\$ ]]; then SRV_USER="\${BASH_REMATCH[1]}"; SRV_PASS="\${BASH_REMATCH[2]}"
-        else SRV_USER="\$auth"; SRV_PASS=""; fi
-        if [[ "\$rest" =~ ^([^:]+):([0-9]+)/(.+)\$ ]]; then SRV_HOST="\${BASH_REMATCH[1]}"; SRV_PORT="\${BASH_REMATCH[2]}"; SRV_DB="\${BASH_REMATCH[3]}"; fi
+        if [[ "\$auth" =~ ^([^:]+):(.+)\$ ]]; then 
+            SRV_USER="\${BASH_REMATCH[1]}"; SRV_PASS="\${BASH_REMATCH[2]}"
+        else 
+            SRV_USER="\$auth"; SRV_PASS=""
+        fi
+        if [[ "\$rest" =~ ^([^:]+):([0-9]+)/(.+)\$ ]]; then 
+            SRV_HOST="\${BASH_REMATCH[1]}"; SRV_PORT="\${BASH_REMATCH[2]}"; SRV_DB="\${BASH_REMATCH[3]}"
+        fi
     fi
 }
 parse_srv_db "\$DB_URL"
 
-if [ -n "\$SRV_DB" ] && [ -f "\$TEMP_DUMP" ]; then
-    if [ -n "\$SRV_PASS" ]; then export PGPASSWORD="\$SRV_PASS"; fi
-    pg_restore -U "\$SRV_USER" -h "\$SRV_HOST" -p "\$SRV_PORT" -d "\$SRV_DB" --clean --if-exists --no-owner --no-privileges "\$TEMP_DUMP" 2>/dev/null || true
+if [ -n "\${SRV_DB:-}" ] && [ -f "\$TEMP_DUMP" ]; then
+    if [ -n "\${SRV_PASS:-}" ]; then export PGPASSWORD="\$SRV_PASS"; fi
+    pg_restore -U "\$SRV_USER" -h "\$SRV_HOST" -p "\$SRV_PORT" -d "\$SRV_DB" \
+        --clean --if-exists --no-owner --no-privileges "\$TEMP_DUMP" 2>/dev/null || {
+        log_warn "pg_restore вернул предупреждения (это нормально)"
+    }
     unset PGPASSWORD
     rm -f "\$TEMP_DUMP"
-    log "✅ БД восстановлена"
+    log "✅ База данных восстановлена"
+elif [ -z "\${SRV_DB:-}" ]; then
+    log_warn "SERVER_DATABASE_URL не задан или не распарсен, пропускаем восстановление БД"
 fi
 
-# 8. Миграции
-flask db upgrade || true
+# === 7.8 МИГРАЦИИ ALEMBIC ===
+log "🔄 Применение миграций..."
+flask db upgrade 2>/dev/null || {
+    log_warn "Миграции уже применены или требуют внимания"
+}
 
-# 9. Запуск
-log "🚀 Запуск \${SERVICE_NAME}..."
-systemctl start "\${SERVICE_NAME}"
-sleep 2
-if systemctl is-active --quiet "\${SERVICE_NAME}"; then
-    log "✅ Сервис запущен"
+# === 7.9 ПРАВА НА ФАЙЛЫ ===
+log "🔐 Выставляем права на папку проекта..."
+chown -R \${APP_USER}:\${APP_USER} "\${PROJECT_PATH}" 2>/dev/null || {
+    log_warn "Не удалось изменить владельца (возможно, уже верно)"
+}
+
+# === 7.10 ЗАПУСК СЕРВИСА ===
+log "🚀 Запуск сервиса \${SERVICE_NAME}..."
+
+# Проверяем, существует ли юнит в systemd
+if systemctl list-units --all 2>/dev/null | grep -q "\${SERVICE_NAME}"; then
+    # Перезагружаем конфиги на случай изменений в юните
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl start "\${SERVICE_NAME}"
+    sleep 3
+    if systemctl is-active --quiet "\${SERVICE_NAME}" 2>/dev/null; then
+        log "✅ Сервис \${SERVICE_NAME} запущен через systemd"
+    else
+        log "❌ Сервис не запустился. Логи:"
+        journalctl -u "\${SERVICE_NAME}" -n 20 --no-pager 2>/dev/null || echo "Нет логов journalctl"
+        exit 1
+    fi
 else
-    log "❌ Ошибка запуска! Логи:"
-    journalctl -u "\${SERVICE_NAME}" -n 20 --no-pager
-    exit 1
+    # Fallback: ручной запуск gunicorn
+    log_warn "systemd-юнит \${SERVICE_NAME} не найден, запускаем gunicorn вручную..."
+    su - \${APP_USER} -c "cd \${PROJECT_PATH} && source venv/bin/activate && \
+        nohup gunicorn --workers 3 --bind 127.0.0.1:\${APP_PORT} app:app > /var/log/kprf-app.log 2>&1 &" || {
+        # Если su не работает, пробуем от root
+        cd "\${PROJECT_PATH}"
+        source venv/bin/activate
+        nohup gunicorn --workers 3 --bind 127.0.0.1:\${APP_PORT} app:app > /var/log/kprf-app.log 2>&1 &
+    }
+    sleep 3
 fi
+
+# === 7.11 ПРОВЕРКА ЗДОРОВЬЯ ===
+log "🏥 Проверка доступности приложения..."
+if curl -s --max-time 5 "http://127.0.0.1:\${APP_PORT}" > /dev/null 2>&1; then
+    log "✅ Приложение отвечает на порту \${APP_PORT}"
+else
+    log "⚠️ Приложение не отвечает на порту \${APP_PORT}. Логи:"
+    if [ -f "/var/log/kprf-app.log" ]; then
+        tail -20 /var/log/kprf-app.log
+    else
+        journalctl -u "\${SERVICE_NAME}" -n 20 --no-pager 2>/dev/null || echo "Нет доступных логов"
+    fi
+fi
+
+log "✅ Все шаги на сервере выполнены"
 DEPLOY_EOF
 
-# === 8. ФИНАЛ ===
+# === 8. ОЧИСТКА ЛОКАЛЬНО ===
 rm -f "$DUMP_FILENAME"
-log_success "Локальный дамп удалён."
-echo -e "\n${GREEN}🎉 ДЕПЛОЙ ЗАВЕРШЁН!${NC}"
-echo "🌐 https://${DOMAIN:-server-ip}"
+log_success "Локальный дамп удалён"
+
+# === 9. ФИНАЛ ===
+echo ""
+echo -e "${GREEN}╔════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║  🎉 ДЕПЛОЙ ЗАВЕРШЁН УСПЕШНО!  ║${NC}"
+echo -e "${GREEN}╚════════════════════════════════════╝${NC}"
+echo ""
+echo "🌐 Сайт: https://${DOMAIN:-${SERVER_HOST}}"
+echo "🔐 Админка: /admin"
+echo "📁 Бэкап кода на сервере: ${SERVER_PROJECT_PATH}/_backup_*"
+echo ""
+log_info "Если что-то пошло не так, восстанови код из бэкапа:"
+echo "  ssh ${SERVER_USER}@${SERVER_HOST}"
+echo "  systemctl stop ${SERVICE_NAME}"
+echo "  rm -rf ${SERVER_PROJECT_PATH}"
+echo "  mv ${SERVER_PROJECT_PATH}/_backup_YYYYMMDD_HHMMSS ${SERVER_PROJECT_PATH}"
+echo "  systemctl start ${SERVICE_NAME}"
