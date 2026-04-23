@@ -135,90 +135,79 @@ log_success "Файлы переданы"
 # === 7. ВЫПОЛНЕНИЕ НА СЕРВЕРЕ ===
 log_info "🔧 Выполнение команд на сервере..."
 
-# Используем "DEPLOY_EOF" без кавычек, чтобы переменные раскрылись
-$SSH_CMD << DEPLOY_EOF
+$SSH_CMD << 'DEPLOY_EOF'
 set -euo pipefail
 
-# Передаём переменные внутрь heredoc
-PROJECT_PATH="${SERVER_PROJECT_PATH}"
-SERVICE_NAME="${SERVICE_NAME}"
-APP_PORT="${APP_PORT}"
-APP_USER="${APP_USER}"
-TEMP_DUMP="${TEMP_DUMP_ON_SERVER}"
-DB_URL="${SERVER_DATABASE_URL}"
-GH_USER="${GH_USER}"
-REPO_NAME="${GITHUB_REPO_NAME}"
-BRANCH="${CURRENT_BRANCH}"
+# === ФУНКЦИИ ЛОГИРОВАНИЯ (локальные для сервера) ===
+log() { echo -e "[SERVER] $1"; }
+log_warn() { echo -e "[SERVER] [WARN] $1"; }
+log_error() { echo -e "[SERVER] [FAIL] $1"; }
 
-log() { echo -e "[SERVER] \$1"; }
+# === ПЕРЕМЕННЫЕ (передаются из локального скрипта) ===
+: "${PROJECT_PATH:=/var/www/kprf-surgut.ru}"
+: "${SERVICE_NAME:=kprf-surgut}"
+: "${APP_PORT:=8000}"
+: "${APP_USER:=kprf}"
+: "${TEMP_DUMP:=/tmp/kprf_surgut.dump}"
+: "${DB_URL:=}"
+: "${GH_USER:=}"
+: "${REPO_NAME:=kprf-surgut}"
+: "${BRANCH:=main}"
 
 # === 7.1 ОСТАНОВКА СЕРВИСА ===
-log "⏹ Остановка \${SERVICE_NAME}..."
-if systemctl list-units --all 2>/dev/null | grep -q "\${SERVICE_NAME}"; then
-    systemctl stop "\${SERVICE_NAME}" 2>/dev/null || {
+log "⏹ Остановка ${SERVICE_NAME}..."
+if systemctl list-units --all 2>/dev/null | grep -q "${SERVICE_NAME}"; then
+    systemctl stop "${SERVICE_NAME}" 2>/dev/null || {
         log_warn "systemctl stop не сработал, пробуем pkill..."
-        pkill -f "gunicorn.*\${APP_PORT}" 2>/dev/null || true
+        pkill -f "gunicorn.*${APP_PORT}" 2>/dev/null || true
     }
 else
-    log_warn "Сервис \${SERVICE_NAME} не найден в systemd, используем pkill"
-    pkill -f "gunicorn.*\${APP_PORT}" 2>/dev/null || true
+    log_warn "Сервис ${SERVICE_NAME} не найден в systemd, используем pkill"
+    pkill -f "gunicorn.*${APP_PORT}" 2>/dev/null || true
 fi
 sleep 2
 
 # === 7.2 БЭКАП СТАРОГО КОДА ===
-BACKUP_DIR="\${PROJECT_PATH}/_backup_\$(date +%Y%m%d_%H%M%S)"
-if [ -d "\${PROJECT_PATH}" ] && [ -n "\$(ls -A \${PROJECT_PATH} 2>/dev/null | grep -v '_backup_' || true)" ]; then
-    log "📦 Архивация старого кода в \${BACKUP_DIR}..."
-    mkdir -p "\$(dirname "\$BACKUP_DIR")"
-    rsync -a --exclude='_backup_*' "\${PROJECT_PATH}/" "\${BACKUP_DIR}/" 2>/dev/null || \
-    cp -r "\${PROJECT_PATH}" "\${BACKUP_DIR}" || true
-    log "✅ Бэкап создан: \${BACKUP_DIR}"
+BACKUP_DIR="${PROJECT_PATH}/_backup_$(date +%Y%m%d_%H%M%S)"
+if [ -d "${PROJECT_PATH}" ] && [ -n "$(ls -A "${PROJECT_PATH}" 2>/dev/null | grep -v '_backup_' || true)" ]; then
+    log "📦 Архивация старого кода в ${BACKUP_DIR}..."
+    mkdir -p "$(dirname "$BACKUP_DIR")"
+    rsync -a --exclude='_backup_*' "${PROJECT_PATH}/" "${BACKUP_DIR}/" 2>/dev/null || \
+    cp -r "${PROJECT_PATH}" "${BACKUP_DIR}" || true
+    log "✅ Бэкап создан: ${BACKUP_DIR}"
 fi
 
-# === 7.3 ОЧИСТКА ПАПКИ (сохраняем .env.tmp) ===
+# === 7.3 ОЧИСТКА ПАПКИ (сохраняем .env) ===
 log "🧹 Очистка директории проекта..."
-mkdir -p "\${PROJECT_PATH}"
-find "\${PROJECT_PATH}" -mindepth 1 -maxdepth 1 ! -name '.env.tmp' -exec rm -rf {} \; 2>/dev/null || true
+mkdir -p "${PROJECT_PATH}"
+find "${PROJECT_PATH}" -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} \; 2>/dev/null || true
 
 # === 7.4 КЛОНИРОВАНИЕ/ОБНОВЛЕНИЕ КОДА ===
 log "📥 Синхронизация кода из GitHub..."
-cd "\${PROJECT_PATH}"
+cd "${PROJECT_PATH}"
 
 if [ -d ".git" ] && git rev-parse --git-dir > /dev/null 2>&1; then
-    # Это репозиторий — делаем pull + reset
-    log "🔄 Pull из ветки \${BRANCH}..."
-    git fetch origin "\${BRANCH}" 2>/dev/null || true
-    git reset --hard "origin/\${BRANCH}" 2>/dev/null || true
+    log "🔄 Pull из ветки ${BRANCH}..."
+    git fetch origin "${BRANCH}" 2>/dev/null || true
+    git reset --hard "origin/${BRANCH}" 2>/dev/null || true
     git clean -fd 2>/dev/null || true
     log "✅ Код обновлён через pull"
 else
-    # Нет репозитория — чистим и клонируем заново
     log "🗑 Папка не является репозиторием, клонируем заново..."
-    # Сохраняем .env временно
-    [ -f ".env.tmp" ] && mv ".env.tmp" "/tmp/.env.backup.\$\$"
-    # Удаляем всё содержимое
-    find "\${PROJECT_PATH}" -mindepth 1 -delete 2>/dev/null || true
-    # Клонируем в текущую папку
-    git clone --branch "\${BRANCH}" "https://github.com/\${GH_USER}/\${REPO_NAME}.git" "\${PROJECT_PATH}" 2>/dev/null || {
-        log "⚠️ Клонирование не удалось, пробуем без ветки..."
-        git clone "https://github.com/\${GH_USER}/\${REPO_NAME}.git" "\${PROJECT_PATH}" 2>/dev/null || {
+    [ -f ".env" ] && mv ".env" "/tmp/.env.backup.$$"
+    find "${PROJECT_PATH}" -mindepth 1 -delete 2>/dev/null || true
+    git clone --branch "${BRANCH}" "https://github.com/${GH_USER}/${REPO_NAME}.git" "${PROJECT_PATH}" 2>/dev/null || {
+        log_warn "Клонирование с веткой не удалось, пробуем без..."
+        git clone "https://github.com/${GH_USER}/${REPO_NAME}.git" "${PROJECT_PATH}" 2>/dev/null || {
             log_error "❌ Не удалось клонировать репозиторий"
             exit 1
         }
     }
-    # Возвращаем .env
-    [ -f "/tmp/.env.backup.\$\$" ] && mv "/tmp/.env.backup.\$\$" "\${PROJECT_PATH}/.env"
+    [ -f "/tmp/.env.backup.$$" ] && mv "/tmp/.env.backup.$$" "${PROJECT_PATH}/.env"
     log "✅ Код склонирован заново"
 fi
 
-# === 7.5 УСТАНОВКА .env ===
-if [ -f ".env.tmp" ]; then
-    mv ".env.tmp" ".env"
-    chmod 600 ".env"
-    log "✅ .env установлен"
-fi
-
-# === 7.6 ВИРТУАЛЬНОЕ ОКРУЖЕНИЕ И ЗАВИСИМОСТИ ===
+# === 7.5 ВИРТУАЛЬНОЕ ОКРУЖЕНИЕ И ЗАВИСИМОСТИ ===
 log "🐍 Проверка виртуального окружения..."
 if [ ! -d "venv" ]; then
     log "Создание venv..."
@@ -227,96 +216,69 @@ fi
 log "📦 Установка зависимостей..."
 source venv/bin/activate
 pip install --upgrade pip -q
-pip install -r requirements.txt -q 2>/dev/null || {
-    log_warn "pip install вернул предупреждения, продолжаем..."
-}
+pip install -r requirements.txt -q 2>/dev/null || log_warn "pip install вернул предупреждения"
 
-# === 7.7 ВОССТАНОВЛЕНИЕ БД ===
+# === 7.6 ВОССТАНОВЛЕНИЕ БД ===
 log "🗄 Восстановление базы данных..."
-
-# Парсинг серверной БД
-parse_srv_db() {
-    local url="\$1"
-    url="\${url#postgresql://}"
-    if [[ "\$url" =~ ^([^@]+)@(.+)\$ ]]; then
-        local auth="\${BASH_REMATCH[1]}"; local rest="\${BASH_REMATCH[2]}"
-        if [[ "\$auth" =~ ^([^:]+):(.+)\$ ]]; then 
-            SRV_USER="\${BASH_REMATCH[1]}"; SRV_PASS="\${BASH_REMATCH[2]}"
-        else 
-            SRV_USER="\$auth"; SRV_PASS=""
-        fi
-        if [[ "\$rest" =~ ^([^:]+):([0-9]+)/(.+)\$ ]]; then 
-            SRV_HOST="\${BASH_REMATCH[1]}"; SRV_PORT="\${BASH_REMATCH[2]}"; SRV_DB="\${BASH_REMATCH[3]}"
-        fi
+if [ -n "${DB_URL:-}" ] && [ -f "${TEMP_DUMP}" ]; then
+    # Парсим SERVER_DATABASE_URL
+    if [[ "$DB_URL" =~ postgresql://([^:]+):([^@]+)@([^:]+):([0-9]+)/(.+) ]]; then
+        SRV_USER="${BASH_REMATCH[1]}"
+        SRV_PASS="${BASH_REMATCH[2]}"
+        SRV_HOST="${BASH_REMATCH[3]}"
+        SRV_PORT="${BASH_REMATCH[4]}"
+        SRV_DB="${BASH_REMATCH[5]}"
+        
+        if [ -n "$SRV_PASS" ]; then export PGPASSWORD="$SRV_PASS"; fi
+        pg_restore -U "$SRV_USER" -h "$SRV_HOST" -p "$SRV_PORT" -d "$SRV_DB" \
+            --clean --if-exists --no-owner --no-privileges "$TEMP_DUMP" 2>/dev/null || \
+            log_warn "pg_restore вернул предупреждения"
+        unset PGPASSWORD
+        rm -f "$TEMP_DUMP"
+        log "✅ База данных восстановлена"
+    else
+        log_warn "Не удалось распарсить SERVER_DATABASE_URL"
     fi
-}
-parse_srv_db "\$DB_URL"
-
-if [ -n "\${SRV_DB:-}" ] && [ -f "\$TEMP_DUMP" ]; then
-    if [ -n "\${SRV_PASS:-}" ]; then export PGPASSWORD="\$SRV_PASS"; fi
-    pg_restore -U "\$SRV_USER" -h "\$SRV_HOST" -p "\$SRV_PORT" -d "\$SRV_DB" \
-        --clean --if-exists --no-owner --no-privileges "\$TEMP_DUMP" 2>/dev/null || {
-        log_warn "pg_restore вернул предупреждения (это нормально)"
-    }
-    unset PGPASSWORD
-    rm -f "\$TEMP_DUMP"
-    log "✅ База данных восстановлена"
-elif [ -z "\${SRV_DB:-}" ]; then
-    log_warn "SERVER_DATABASE_URL не задан или не распарсен, пропускаем восстановление БД"
+else
+    log_warn "DB_URL или дамп не заданы, пропускаем восстановление БД"
 fi
 
-# === 7.8 МИГРАЦИИ ALEMBIC ===
+# === 7.7 МИГРАЦИИ ===
 log "🔄 Применение миграций..."
-flask db upgrade 2>/dev/null || {
-    log_warn "Миграции уже применены или требуют внимания"
-}
+flask db upgrade 2>/dev/null || log_warn "Миграции уже применены"
 
-# === 7.9 ПРАВА НА ФАЙЛЫ ===
+# === 7.8 ПРАВА НА ФАЙЛЫ ===
 log "🔐 Выставляем права на папку проекта..."
-chown -R \${APP_USER}:\${APP_USER} "\${PROJECT_PATH}" 2>/dev/null || {
-    log_warn "Не удалось изменить владельца (возможно, уже верно)"
-}
+chown -R "${APP_USER}:${APP_USER}" "${PROJECT_PATH}" 2>/dev/null || true
 
-# === 7.10 ЗАПУСК СЕРВИСА ===
-log "🚀 Запуск сервиса \${SERVICE_NAME}..."
-
-# Проверяем, существует ли юнит в systemd
-if systemctl list-units --all 2>/dev/null | grep -q "\${SERVICE_NAME}"; then
-    # Перезагружаем конфиги на случай изменений в юните
+# === 7.9 ЗАПУСК СЕРВИСА ===
+log "🚀 Запуск сервиса ${SERVICE_NAME}..."
+if systemctl list-units --all 2>/dev/null | grep -q "${SERVICE_NAME}"; then
     systemctl daemon-reload 2>/dev/null || true
-    systemctl start "\${SERVICE_NAME}"
+    systemctl start "${SERVICE_NAME}"
     sleep 3
-    if systemctl is-active --quiet "\${SERVICE_NAME}" 2>/dev/null; then
-        log "✅ Сервис \${SERVICE_NAME} запущен через systemd"
+    if systemctl is-active --quiet "${SERVICE_NAME}" 2>/dev/null; then
+        log "✅ Сервис ${SERVICE_NAME} запущен"
     else
-        log "❌ Сервис не запустился. Логи:"
-        journalctl -u "\${SERVICE_NAME}" -n 20 --no-pager 2>/dev/null || echo "Нет логов journalctl"
+        log_error "❌ Сервис не запустился. Логи:"
+        journalctl -u "${SERVICE_NAME}" -n 20 --no-pager 2>/dev/null || echo "Нет логов"
         exit 1
     fi
 else
-    # Fallback: ручной запуск gunicorn
-    log_warn "systemd-юнит \${SERVICE_NAME} не найден, запускаем gunicorn вручную..."
-    su - \${APP_USER} -c "cd \${PROJECT_PATH} && source venv/bin/activate && \
-        nohup gunicorn --workers 3 --bind 127.0.0.1:\${APP_PORT} app:app > /var/log/kprf-app.log 2>&1 &" || {
-        # Если su не работает, пробуем от root
-        cd "\${PROJECT_PATH}"
-        source venv/bin/activate
-        nohup gunicorn --workers 3 --bind 127.0.0.1:\${APP_PORT} app:app > /var/log/kprf-app.log 2>&1 &
-    }
+    log_warn "systemd-юнит не найден, запускаем gunicorn вручную..."
+    cd "${PROJECT_PATH}"
+    source venv/bin/activate
+    nohup gunicorn --workers 3 --bind 127.0.0.1:"${APP_PORT}" app:app > /var/log/kprf-app.log 2>&1 &
     sleep 3
 fi
 
-# === 7.11 ПРОВЕРКА ЗДОРОВЬЯ ===
+# === 7.10 ПРОВЕРКА ЗДОРОВЬЯ ===
 log "🏥 Проверка доступности приложения..."
-if curl -s --max-time 5 "http://127.0.0.1:\${APP_PORT}" > /dev/null 2>&1; then
-    log "✅ Приложение отвечает на порту \${APP_PORT}"
+if curl -s --max-time 5 "http://127.0.0.1:${APP_PORT}" > /dev/null 2>&1; then
+    log "✅ Приложение отвечает на порту ${APP_PORT}"
 else
-    log "⚠️ Приложение не отвечает на порту \${APP_PORT}. Логи:"
-    if [ -f "/var/log/kprf-app.log" ]; then
-        tail -20 /var/log/kprf-app.log
-    else
-        journalctl -u "\${SERVICE_NAME}" -n 20 --no-pager 2>/dev/null || echo "Нет доступных логов"
-    fi
+    log_warn "Приложение не отвечает. Логи:"
+    [ -f "/var/log/kprf-app.log" ] && tail -20 /var/log/kprf-app.log || echo "Нет логов"
 fi
 
 log "✅ Все шаги на сервере выполнены"
