@@ -186,23 +186,49 @@ find "${PROJECT_PATH}" -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} \;
 log "📥 Синхронизация кода из GitHub..."
 cd "${PROJECT_PATH}"
 
+# Формируем URL для клонирования (с токеном если есть)
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    REPO_URL="https://${GH_USER}:${GITHUB_TOKEN}@github.com/${GH_USER}/${REPO_NAME}.git"
+    log "🔐 Используем аутентификацию через токен"
+else
+    REPO_URL="https://github.com/${GH_USER}/${REPO_NAME}.git"
+    log "🌐 Используем публичный доступ (может потребоваться SSH-ключ)"
+fi
+
 if [ -d ".git" ] && git rev-parse --git-dir > /dev/null 2>&1; then
     log "🔄 Pull из ветки ${BRANCH}..."
-    git fetch origin "${BRANCH}" 2>/dev/null || true
+    git fetch origin "${BRANCH}" 2>&1 || {
+        log_warn "git fetch не сработал, пробуем полный reset..."
+        git remote set-url origin "${REPO_URL}" 2>/dev/null || true
+        git fetch origin "${BRANCH}" 2>&1 || true
+    }
     git reset --hard "origin/${BRANCH}" 2>/dev/null || true
     git clean -fd 2>/dev/null || true
     log "✅ Код обновлён через pull"
 else
     log "🗑 Папка не является репозиторием, клонируем заново..."
     [ -f ".env" ] && mv ".env" "/tmp/.env.backup.$$"
+    
+    # Очищаем папку перед клонированием
     find "${PROJECT_PATH}" -mindepth 1 -delete 2>/dev/null || true
-    git clone --branch "${BRANCH}" "https://github.com/${GH_USER}/${REPO_NAME}.git" "${PROJECT_PATH}" 2>/dev/null || {
-        log_warn "Клонирование с веткой не удалось, пробуем без..."
-        git clone "https://github.com/${GH_USER}/${REPO_NAME}.git" "${PROJECT_PATH}" 2>/dev/null || {
-            log_error "❌ Не удалось клонировать репозиторий"
+    
+    # Пробуем клонировать с подробным выводом для отладки
+    log "🔗 Клонируем: ${REPO_URL} -> ${PROJECT_PATH}"
+    if ! git clone --branch "${BRANCH}" "${REPO_URL}" "${PROJECT_PATH}" 2>&1; then
+        log_warn "Клонирование с веткой не удалось, пробуем без указания ветки..."
+        if ! git clone "${REPO_URL}" "${PROJECT_PATH}" 2>&1; then
+            log_error "❌ Не удалось клонировать репозиторий!"
+            log "💡 Возможные причины:"
+            log "   • Неверный GH_USER или GITHUB_TOKEN"
+            log "   • Репозиторий приватный, а токен не имеет доступа"
+            log "   • Git не установлен на сервере"
+            log "   • Нет доступа к github.com (фаервол/сеть)"
+            # Восстанавливаем .env перед выходом
+            [ -f "/tmp/.env.backup.$$" ] && mv "/tmp/.env.backup.$$" "${PROJECT_PATH}/.env"
             exit 1
-        }
-    }
+        fi
+    fi
+    
     [ -f "/tmp/.env.backup.$$" ] && mv "/tmp/.env.backup.$$" "${PROJECT_PATH}/.env"
     log "✅ Код склонирован заново"
 fi
