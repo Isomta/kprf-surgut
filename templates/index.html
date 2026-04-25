@@ -1,174 +1,123 @@
 {% extends "base.html" %}
 {% block title %}Поиск кандидата{% endblock %}
 
+{% block extra_head %}
+<!-- Стили главной страницы -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
 {% block content %}
 <!-- Карточка поиска -->
-<div class="search-card" style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 25px;">
-    <h3 style="margin: 0 0 20px; color: var(--color-primary); text-align: center;">🔍 Найти кандидата по адресу</h3>
-    <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
-        <input type="text" id="street" placeholder="Улица" list="streetList" autocomplete="off" 
-               style="padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; min-width: 200px; flex: 1; max-width: 250px;">
+<div class="search-card">
+    <h3>🔍 Найти кандидата по адресу</h3>
+    <div class="search-form">
+        <input type="text" id="street" class="search-input" placeholder="Улица" list="streetList" autocomplete="off">
         <datalist id="streetList"></datalist>
-        <input type="text" id="house" placeholder="Номер дома" list="houseList" autocomplete="off" 
-               style="padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px; min-width: 120px; flex: 1; max-width: 150px;">
+        <input type="text" id="house" class="search-house" placeholder="Номер дома" list="houseList" autocomplete="off">
         <datalist id="houseList"></datalist>
-        <button class="btn" onclick="searchDeputat()" style="padding: 10px 24px; background: var(--color-primary); color: var(--color-text-on-primary); border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background 0.2s;">Найти</button>
+        <button class="search-btn" onclick="searchDeputat()">Найти</button>
     </div>
-    <div id="searchError" style="color: var(--color-primary-hover); margin-top: 12px; text-align: center; font-weight: 500; min-height: 20px;"></div>
-</div>
-
-<!-- Внешняя карта избирательных округов (скрывается при выборе кандидата) -->
-<div id="externalMapContainer" style="margin-bottom: 25px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-    <iframe 
-      src="http://dev.dumasurgut.ru/Общие-сведения/Карта-избирательных-округов" 
-      width="100%" 
-      height="500px" 
-      style="border:0;" 
-      allowfullscreen 
-      loading="lazy">
-    </iframe>
+    <div id="searchError"></div>
 </div>
 
 <!-- Карточка кандидата -->
-<div id="deputatInfo" class="deputat-card" style="display: none; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-    <div style="display: flex; gap: 25px; align-items: flex-start; flex-wrap: wrap;">
-        <!-- Фото + кнопка Подробнее -->
-        <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center;">
-            <img id="deputatPhotoImg" src="" alt="Фото кандидата" 
-                 style="width: 130px; height: 130px; object-fit: cover; border-radius: 50%; border: 4px solid var(--color-primary); margin-bottom: 12px;">
-            
-            <button onclick="openDeputatDetails()" 
-                    style="padding: 8px 18px; background: var(--color-primary); color: var(--color-text-on-primary); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">
-                📖 Подробнее
-            </button>
+<div id="deputatInfo" class="deputat-card-wrapper">
+    <div class="deputat-header">
+        <div class="deputat-photo-col">
+            <img id="deputatPhotoImg" src="" alt="Фото кандидата" class="deputat-photo-img">
+            <button onclick="openDeputatDetails()" class="btn-details">📖 Подробнее</button>
         </div>
-        
-        <!-- Информация -->
-        <div style="flex-grow: 1; min-width: 280px;">
-            <h2 id="deputatName" style="margin: 0 0 12px; color: var(--color-primary); font-size: 1.5rem;"></h2>
-            <p style="margin: 6px 0;"><strong>Участок №</strong> <span id="uchastok"></span></p>
-            <p style="margin: 6px 0;"><strong>Дата рождения:</strong> <span id="birthDate"></span></p>
-            <p style="margin: 6px 0;"><strong>Образование:</strong> <span id="education"></span></p>
-            <p style="margin: 6px 0;"><strong>Стаж работы:</strong> <span id="experience"></span></p>
-            <p style="margin: 6px 0;"><strong>Адрес приемной:</strong> <span id="address"></span></p>
-            
-            <!-- Карта Leaflet -->
-            <div id="map" style="height: 280px; margin-top: 15px; border-radius: 8px; display: none; border: 1px solid #eee;"></div>
-            
-            <p style="margin: 6px 0;"><strong>Телефон:</strong> <span id="phone"></span></p>
-            <p style="margin: 6px 0;"><strong>Email:</strong> <span id="email"></span></p>
+        <div class="deputat-info">
+            <h2 id="deputatName"></h2>
+            <p><strong>Участок №</strong> <span id="uchastok"></span></p>
+            <p><strong>Дата рождения:</strong> <span id="birthDate"></span></p>
+            <p><strong>Образование:</strong> <span id="education"></span></p>
+            <p><strong>Стаж работы:</strong> <span id="experience"></span></p>
+            <p><strong>Адрес приемной:</strong> <span id="address"></span></p>
+            <div id="map"></div>
+            <p><strong>Телефон:</strong> <span id="phone"></span></p>
+            <p><strong>Email:</strong> <span id="email"></span></p>
 
-            <!-- Статистика обращений -->
-            <h3 style="margin: 25px 0 15px; color: var(--color-primary); border-bottom: 2px solid var(--color-primary-light); padding-bottom: 8px;">📊 Статистика обращений</h3>
-            <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 20px;">
-                <div class="stat-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px; text-align: center;">
-                    <div class="stat-number" id="totalAppeals" style="font-size: 1.4rem; font-weight: 700; color: var(--color-primary);">0</div>
-                    <div style="font-size: 13px; color: #666;">Всего</div>
-                </div>
-                <div class="stat-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px; text-align: center;">
-                    <div class="stat-number" id="newAppeals" style="font-size: 1.4rem; font-weight: 700; color: #3498db;">0</div>
-                    <div style="font-size: 13px; color: #666;">Новых</div>
-                </div>
-                <div class="stat-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px; text-align: center;">
-                    <div class="stat-number" id="inWorkAppeals" style="font-size: 1.4rem; font-weight: 700; color: #f39c12;">0</div>
-                    <div style="font-size: 13px; color: #666;">В работе</div>
-                </div>
-                <div class="stat-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px; text-align: center;">
-                    <div class="stat-number" id="completedAppeals" style="font-size: 1.4rem; font-weight: 700; color: #27ae60;">0</div>
-                    <div style="font-size: 13px; color: #666;">Выполнено</div>
-                </div>
-                <div class="stat-item" style="background: #f8f9fa; padding: 12px; border-radius: 8px; text-align: center;">
-                    <div class="stat-number" id="rejectedAppeals" style="font-size: 1.4rem; font-weight: 700; color: #e74c3c;">0</div>
-                    <div style="font-size: 13px; color: #666;">Отказано</div>
-                </div>
+            <h3 class="section-title">📊 Статистика обращений</h3>
+            <div class="stats-grid">
+                <div class="stat-item stat-total"><div class="stat-number" id="totalAppeals">0</div><div class="stat-label">Всего</div></div>
+                <div class="stat-item stat-new"><div class="stat-number" id="newAppeals">0</div><div class="stat-label">Новых</div></div>
+                <div class="stat-item stat-inwork"><div class="stat-number" id="inWorkAppeals">0</div><div class="stat-label">В работе</div></div>
+                <div class="stat-item stat-completed"><div class="stat-number" id="completedAppeals">0</div><div class="stat-label">Выполнено</div></div>
+                <div class="stat-item stat-rejected"><div class="stat-number" id="rejectedAppeals">0</div><div class="stat-label">Отказано</div></div>
             </div>
 
-            <!-- Темы обращений -->
-            <h3 style="margin: 25px 0 15px; color: var(--color-primary); border-bottom: 2px solid var(--color-primary-light); padding-bottom: 8px;">🏷️ Темы обращений</h3>
-            <div id="topicsStats" class="topics-list" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+            <h3 class="section-title">🏷️ Темы обращений</h3>
+            <div id="topicsStats" class="topics-list"></div>
 
-            <!-- Кнопка создания обращения -->
-             <!-- <button class="btn" onclick="openAppealForm()" 
-                    style="margin-top: 25px; padding: 12px 28px; background: var(--color-primary); color: var(--color-text-on-primary); border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; transition: background 0.2s;">
-                ➕ Создать обращение
-            </button> -->
         </div>
     </div>
 </div>
 
-<!-- ======================================================================= -->
-<!-- МОДАЛЬНОЕ ОКНО: БИОГРАФИЯ И ПРЕДВЫБОРНАЯ ПРОГРАММА (НОВОЕ) -->
-<!-- ======================================================================= -->
-<div id="detailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.65); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(3px);">
-    <div style="background: white; padding: 30px; border-radius: 14px; max-width: 780px; width: 92%; max-height: 88vh; overflow-y: auto; position: relative; box-shadow: 0 12px 40px rgba(0,0,0,0.35);">
-        <!-- Кнопка закрытия -->
-        <button onclick="closeDeputatDetails()" 
-                style="position: absolute; top: 18px; right: 22px; background: none; border: none; font-size: 32px; cursor: pointer; color: #777; line-height: 1; transition: color 0.2s;"
-                onmouseover="this.style.color='#333'" onmouseout="this.style.color='#777'">&times;</button>
-        
-        <!-- Биография -->
-        <h2 style="color: var(--color-primary); margin: 0 0 18px; border-bottom: 2px solid var(--color-primary-light); padding-bottom: 12px; font-size: 1.4rem;">📜 Биография</h2>
-        <p id="modalBiography" style="line-height: 1.7; color: #333; margin-bottom: 28px; white-space: pre-wrap; font-size: 15px; background: #fcfcfc; padding: 16px; border-radius: 8px; border-left: 4px solid var(--color-primary);"></p>
-        
-        <!-- Предвыборная программа -->
-        <h3 style="color: var(--color-primary); margin: 0 0 18px; font-size: 1.3rem;">📢 Предвыборная программа</h3>
-        <div id="campaignPointsList" style="display: flex; flex-direction: column; gap: 14px;"></div>
+<!-- Сетка всех депутатов -->
+<div class="deputats-section">
+    <h3>👥 Все кандидаты</h3>
+    <div id="deputats-grid">
+        {% for d in deputats %}
+        <div class="deputat-item">
+            <img src="{{ d.photo or '/static/photos/default.png' }}" onerror="this.src='/static/photos/default.png'">
+            <h3>{{ d.fio }}</h3>
+            <p>Участок №{{ d.uchastok }}</p>
+            {% if d.reception_address %}<p>📍 {{ d.reception_address }}</p>{% endif %}
+            {% if d.phone %}<p><a href="tel:{{ d.phone }}">📞 {{ d.phone }}</a></p>{% endif %}
+            {% if d.email %}<p><a href="mailto:{{ d.email }}">✉️ {{ d.email }}</a></p>{% endif %}
+            <a href="/?deputat_id={{ d.user_id }}" class="btn-write">Перейти</a>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
-<!-- ======================================================================= -->
-<!-- МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ОБРАЩЕНИЯ (СУЩЕСТВУЮЩЕЕ) -->
-<!-- ======================================================================= -->
-<div id="appealModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1500; justify-content: center; align-items: center;">
-    <div class="modal-content" style="background: white; padding: 28px; border-radius: 12px; max-width: 580px; width: 92%; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 30px rgba(0,0,0,0.2);">
-        <h3 style="margin: 0 0 20px; color: var(--color-primary); text-align: center;">➕ Новое обращение</h3>
+<!-- МОДАЛЬНОЕ ОКНО: БИОГРАФИЯ И ПРОГРАММА -->
+<div id="detailsModal" class="modal-overlay">
+    <div class="modal-box">
+        <button onclick="closeDeputatDetails()" class="modal-close">&times;</button>
+        <h2 class="section-title" style="margin-top:0;">📜 Биография</h2>
+        <p id="modalBiography" class="modal-biography"></p>
+        <h3 class="section-title">📢 Предвыборная программа</h3>
+        <div id="campaignPointsList" class="campaign-list"></div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО: СОЗДАНИЕ ОБРАЩЕНИЯ -->
+<div id="appealModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 580px;">
+        <h3 class="section-title" style="text-align: center; margin-bottom: 20px;">➕ Новое обращение</h3>
         <form id="appealForm">
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #444;">Ваш адрес</label>
-                <input type="text" id="modalStreet" placeholder="Улица" list="modalStreetList" autocomplete="off" 
-                       style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 8px;">
+            <div class="form-group">
+                <label>Ваш адрес</label>
+                <input type="text" id="modalStreet" class="form-input" placeholder="Улица" list="modalStreetList" autocomplete="off" style="margin-bottom: 8px;">
                 <datalist id="modalStreetList"></datalist>
-                <input type="text" id="modalHouse" placeholder="Дом" list="modalHouseList" autocomplete="off" 
-                       style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 5px;">
+                <input type="text" id="modalHouse" class="form-input" placeholder="Дом" list="modalHouseList" autocomplete="off">
                 <datalist id="modalHouseList"></datalist>
             </div>
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #444;">Тема обращения</label>
-                <select id="topic" required style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 5px;"></select>
+            <div class="form-group">
+                <label>Тема обращения</label>
+                <select id="topic" class="form-select" required></select>
             </div>
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="display: block; margin-bottom: 6px; font-weight: 500; color: #444;">Текст обращения</label>
-                <textarea id="text" rows="4" required style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 5px; resize: vertical;"></textarea>
+            <div class="form-group">
+                <label>Текст обращения</label>
+                <textarea id="text" class="form-textarea" rows="4" required></textarea>
             </div>
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 4px; font-weight: 500; color: #444;">ФИО (необязательно)</label>
-                <input type="text" id="fio" style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 5px;">
-            </div>
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 4px; font-weight: 500; color: #444;">Телефон (необязательно)</label>
-                <input type="tel" id="phoneInput" style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 5px;">
-            </div>
-            <div class="form-group" style="margin-bottom: 12px;">
-                <label style="display: block; margin-bottom: 4px; font-weight: 500; color: #444;">Email (необязательно)</label>
-                <input type="email" id="emailInput" style="width: 100%; padding: 9px 12px; border: 1px solid #ddd; border-radius: 5px;">
-            </div>
-            <div class="form-group" style="margin-bottom: 16px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="needVisit" style="width: 16px; height: 16px;">
-                    <span style="color: #444;">Требуется личный визит кандидата</span>
-                </label>
-            </div>
-            <div class="form-group" style="margin-bottom: 22px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500;">
-                    <input type="checkbox" id="consent" required style="width: 16px; height: 16px;">
-                    <span style="color: #444;">Я согласен на обработку персональных данных</span>
-                </label>
-            </div>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button type="submit" class="btn" style="padding: 11px 26px; background: var(--color-primary); color: var(--color-text-on-primary); border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Отправить</button>
-                <button type="button" class="btn" onclick="closeModal()" style="padding: 11px 26px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Отмена</button>
+            <div class="form-group"><label>ФИО (необязательно)</label><input type="text" id="fio" class="form-input"></div>
+            <div class="form-group"><label>Телефон (необязательно)</label><input type="tel" id="phoneInput" class="form-input"></div>
+            <div class="form-group"><label>Email (необязательно)</label><input type="email" id="emailInput" class="form-input"></div>
+            <label class="checkbox-group"><input type="checkbox" id="needVisit"><span>Требуется личный визит кандидата</span></label>
+            <label class="checkbox-group"><input type="checkbox" id="consent" required><span>Я согласен на обработку персональных данных</span></label>
+            <div class="modal-actions">
+                <button type="submit" class="search-btn">Отправить</button>
+                <button type="button" class="btn-cancel" onclick="closeModal()">Отмена</button>
             </div>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Логика главной страницы -->
+<script src="{{ url_for('static', filename='js/index.js') }}"></script>
 {% endblock %}

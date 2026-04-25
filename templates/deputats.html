@@ -2,8 +2,7 @@
 {% block title %}Все депутаты{% endblock %}
 
 {% block extra_head %}
-<!-- ?v=2 принудительно ломает кэш браузера -->
-<link rel="stylesheet" href="{{ url_for('static', filename='deputats.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/deputats.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -12,7 +11,7 @@
     <div id="deputats-grid">
         {% for d in deputats %}
         <div class="deputat-item">
-            <img src="{{ d.photo or '/static/photos/default.png' }}" onerror="this.src='/static/photos/default.png'">
+            <img src="{{ d.photo or '/static/photos/default.png' }}" onerror="this.src='/static/photos/default.png'" alt="Фото {{ d.fio }}">
             <h3>{{ d.fio }}</h3>
             <p>Участок №{{ d.uchastok }}</p>
             {% if d.reception_address %}<p>📍 {{ d.reception_address }}</p>{% endif %}

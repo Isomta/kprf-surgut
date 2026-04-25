@@ -11,7 +11,8 @@ public_bp = Blueprint('public', __name__)
 
 @public_bp.route('/')
 def index():
-    return render_template('index.html')
+    deputats = Deputat.query.order_by(Deputat.uchastok).all()
+    return render_template('index.html', deputats=deputats)
 
 
 @public_bp.route('/api/deputat_by_address', methods=['POST'])
@@ -110,21 +111,21 @@ def get_topics():
 
 @public_bp.route('/api/streets')
 def get_streets():
-    streets = db.session.query(AddressBoundary.street).distinct().all()
-    return jsonify([s[0] for s in streets])
+    uchastok = request.args.get('uchastok', type=int)
+    query = db.session.query(AddressBoundary.street)
+    if uchastok:
+        query = query.filter(AddressBoundary.uchastok == uchastok)
+    return jsonify([s[0] for s in query.distinct().all()])
 
 
 @public_bp.route('/api/houses/<street>')
 def get_houses(street):
-    houses = db.session.query(
-        AddressBoundary.house_number).filter_by(street=street).all()
-    return jsonify([h[0] for h in houses])
-
-
-@public_bp.route('/deputats')
-def public_deputats():
-    deputats = Deputat.query.order_by(Deputat.uchastok).all()
-    return render_template('deputats.html', deputats=deputats)
+    uchastok = request.args.get('uchastok', type=int)
+    query = db.session.query(AddressBoundary.house_number).filter(
+        AddressBoundary.street == street)
+    if uchastok:
+        query = query.filter(AddressBoundary.uchastok == uchastok)
+    return jsonify([h[0] for h in query.all()])
 
 
 @public_bp.route('/api/deputats_all')

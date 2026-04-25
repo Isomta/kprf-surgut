@@ -277,6 +277,8 @@ function closeModal() {
     document.getElementById('appealForm').reset();
 }
 
+/* 
+// ========================= ОТКЛЮЧЁННЫЙ БЛОК: ОТПРАВКА ОБРАЩЕНИЯ =========================
 // Отправка обращения
 const appealForm = document.getElementById('appealForm');
 if (appealForm) {
@@ -322,6 +324,8 @@ if (appealForm) {
         }
     });
 }
+// ========================= КОНЕЦ ОТКЛЮЧЁННОГО БЛОКА =========================
+*/
 
 // ========================= ПОДРОБНЕЕ (БИОГРАФИЯ, ПРОГРАММА) =========================
 async function openDeputatDetails() {
